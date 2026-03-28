@@ -1,7 +1,9 @@
 import logging
+import ipaddress
 
+from PyQt5.QtGui import QIntValidator
 import numpy as np
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
@@ -15,8 +17,17 @@ from PyQt5.QtWidgets import (
 )
 from pyqtgraph import PlotWidget, PlotItem
 
+MIN_PORT_NUMBER = 0
+MAX_PORT_NUMBER = 65535
+
+MIN_TEST_DURATION_SECONDS = 0
+MAX_TEST_DURATION_SECONDS = 3600
+
 
 class MainWindow(QMainWindow):
+
+    selected_device = pyqtSignal(str, int)
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
@@ -28,10 +39,12 @@ class MainWindow(QMainWindow):
         self.label_port = QLabel()
         self.label_port.setText("Target device port:")
         self.entry_port = QLineEdit()
+        self.entry_port.setValidator(QIntValidator())
 
         self.label_duration = QLabel()
         self.label_duration.setText("Test duration:")
         self.entry_duration = QLineEdit()
+        self.entry_duration.setValidator(QIntValidator())
 
         self.button_select = QPushButton("Select")
         self.button_start = QPushButton("Start")
@@ -78,6 +91,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
     def start_test(self):
+        if not (text := self.entry_duration.text()):
+            return
+
+        duration = int(text)
+        if not MIN_TEST_DURATION_SECONDS <= duration <= MAX_TEST_DURATION_SECONDS:
+            logging.debug(
+                f"Duration '{self.entry_duration.text()}' is not within the range [{MIN_TEST_DURATION_SECONDS}, {MAX_TEST_DURATION_SECONDS}] seconds"
+            )
+            return
+
         logging.info("Starting test!")
         self.button_start.setEnabled(False)
         self.button_stop.setEnabled(True)
@@ -92,13 +115,38 @@ class MainWindow(QMainWindow):
 
     def select_device(self):
         address = self.entry_ip.text()
-        try:
-            port = int(self.entry_port.text())
-        except ValueError:
-            logging.warning(
-                f"Port '{self.entry_port.text()}' is not a valid port number"
-            )
+        if not self.is_valid_ipv4(address):
+            logging.debug(f"Address '{address}' is not a valid IPv4 address!")
+            return
+
+        if not (text := self.entry_port.text()):
+            return
+
+        port = int(text)
+        if not MIN_PORT_NUMBER <= port <= MAX_PORT_NUMBER:
+            logging.debug(f"Port '{port}' is not a valid port number!")
             return
 
         logging.debug(f"Selected device on {address}:{port}")
-        self.device_request.emit(address, port)
+        self.selected_device.emit(address, port)
+
+    @staticmethod
+    def is_valid_ipv4(address: str) -> bool:
+        """Checks whether the address is a valid IPv4 address.
+
+        This check is done here and not through a QValidator, as
+        the logic turns out to be quite complex. It is simpler
+        to validate input on the button press rather than while
+        the user gives input. QValidator side effects prevent
+        changes once the first input was validated.
+        """
+        parts = address.split(".")
+        if len(parts) != 4:
+            return False
+        try:
+            ip = ipaddress.IPv4Address(address)
+            logging.debug(f"{ip=}")
+        except ValueError:
+            return False
+
+        return True
