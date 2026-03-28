@@ -33,8 +33,10 @@ class MainWindow(QMainWindow):
         self.label_duration.setText("Test duration:")
         self.entry_duration = QLineEdit()
 
+        self.button_select = QPushButton("Select")
         self.button_start = QPushButton("Start")
         self.button_stop = QPushButton("Stop")
+        self.button_select.clicked.connect(self.select_device)
         self.button_start.clicked.connect(self.start_test)
         self.button_stop.clicked.connect(self.stop_test)
 
@@ -56,6 +58,7 @@ class MainWindow(QMainWindow):
         params.addWidget(self.entry_duration, 2, 1, Qt.AlignmentFlag.AlignLeft)
 
         buttons = QVBoxLayout()
+        buttons.addWidget(self.button_select)
         buttons.addWidget(self.button_start)
         buttons.addWidget(self.button_stop)
 
@@ -86,3 +89,16 @@ class MainWindow(QMainWindow):
         logging.info("Stopping test!")
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
+
+    def select_device(self):
+        address = self.entry_ip.text()
+        try:
+            port = int(self.entry_port.text())
+        except ValueError:
+            logging.warning(
+                f"Port '{self.entry_port.text()}' is not a valid port number"
+            )
+            return
+
+        logging.debug(f"Selected device on {address}:{port}")
+        self.device_request.emit(address, port)
