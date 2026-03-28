@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
@@ -74,7 +74,6 @@ class MainWindow(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-    @pyqtSlot()
     def start_test(self):
         logging.info("Starting test!")
         self.button_start.setEnabled(False)
@@ -83,7 +82,6 @@ class MainWindow(QMainWindow):
         self.ydata = np.sin(self.xdata)
         self.plot_item.items[0].setData(self.xdata, self.ydata)
 
-    @pyqtSlot()
     def stop_test(self):
         logging.info("Stopping test!")
         self.button_start.setEnabled(True)
