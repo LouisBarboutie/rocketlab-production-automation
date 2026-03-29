@@ -8,6 +8,8 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 # TODO Clean these enums up, maybe wrap them into dicts in the init. The only remaining enum should be CommandId
 
+DEFAULT_RATE_MILLISECONDS = 10
+
 
 class CommandId(IntEnum):
     """Command identifiers to be emitted by PyQt signals."""
@@ -50,6 +52,12 @@ class ResponseFormat(StrEnum):
 
 
 @dataclass
+class Command:
+    id: CommandId
+    params: Dict[str, Any] = field(init=False, default_factory=dict)
+
+
+@dataclass
 class Response:
     raw: str
     id: ResponseId
@@ -84,15 +92,17 @@ class Codec(QObject):
         self.encoding = "iso-8859-1"
         self.patterns = {entry: re.compile(entry.value) for entry in ResponseFormat}
 
-    def encode(self, command: CommandId, duration: int = 10, rate=1000) -> bytes:
-        template = CommandFormat[command.name]
+    def encode(self, command: Command) -> bytes:
+        template = CommandFormat[command.id.name]
         match template:
             case CommandFormat.ID | CommandFormat.TEST_STOP:
                 for_sending = template.value
             case CommandFormat.TEST_START:
-                for_sending = template.value.format(duration=duration, rate=rate)
+                for_sending = template.value.format(
+                    duration=command.params["duration"], rate=DEFAULT_RATE_MILLISECONDS
+                )
             case _:
-                raise EncodeError("Unknown command")
+                raise EncodeError("Unknown command ID")
 
         logging.debug(f"Built command {repr(for_sending)}")
         return for_sending.encode(self.encoding)
@@ -131,6 +141,6 @@ class Codec(QObject):
                         f"Couldn't convert measurements to numeric: time={m.group(1)}, mv={m.group(2)}, ma={m.group(3)}"
                     )
             case _:
-                raise DecodeError("Unknown response")
+                raise DecodeError("Unknown response ID")
 
         return response

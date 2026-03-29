@@ -1,6 +1,6 @@
 import logging
 import ipaddress
-from typing import Dict
+from typing import Dict, List
 
 from PyQt5.QtGui import QIntValidator
 import numpy as np
@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
 )
 from pyqtgraph import PlotWidget, PlotItem
 
-from codec import CommandId
+from codec import CommandId, Command
 from device import Device
 
 MIN_PORT_NUMBER = 0
@@ -32,9 +32,9 @@ MAX_TEST_DURATION_SECONDS = 3600
 
 class MainWindow(QMainWindow):
 
-    started_test = pyqtSignal(str, int, CommandId)
-    stopped_test = pyqtSignal(str, int, CommandId)
-    requested_discovery = pyqtSignal(str, int, CommandId)
+    started_test = pyqtSignal(Device, Command)
+    stopped_test = pyqtSignal(Device, Command)
+    requested_discovery = pyqtSignal(Device, Command)
 
     def __init__(self) -> None:
         super().__init__()
@@ -82,9 +82,9 @@ class MainWindow(QMainWindow):
         self.plot_item.setLabel("bottom", "time [s]")
         self.plot_item.setLabel("left", "Value [a.u.]")
 
-        self.xdata = np.linspace(0, 20, 100)
-        self.ydata = np.zeros_like(self.xdata)
-        self.plot_item.plot(self.xdata, self.ydata)
+        self.xdata: List[float] = []
+        self.ydata: List[float] = []
+        self.curve = self.plot_item.plot(self.xdata, self.ydata)
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
         # --- Widget placement ---
@@ -149,7 +149,14 @@ class MainWindow(QMainWindow):
         self.device_dropdown.addItems(entries)
         logging.debug(f"Added device {device}")
 
-    def start_test(self):
+    @pyqtSlot(int, float, float)
+    def update_plot(self, time: int, milli_volts: float, milli_amps: float) -> None:
+        self.xdata.append(time)
+        self.ydata.append(milli_volts)
+        self.curve.setData(self.xdata, self.ydata)
+
+    @pyqtSlot()
+    def start_test(self) -> None:
         if not (text := self.entry_duration.text()):
             logging.debug("Missing test duration input")
             dialog = QMessageBox(self)
@@ -177,25 +184,26 @@ class MainWindow(QMainWindow):
             return
 
         logging.info("Starting test!")
+
         self.button_start.setEnabled(False)
         self.button_stop.setEnabled(True)
-        self.xdata += 1
-        self.ydata = np.sin(self.xdata)
-        self.plot_item.items[0].setData(self.xdata, self.ydata)
-        self.stopped_test.emit(
-            self.selected_device.address,
-            self.selected_device.port,
-            CommandId.TEST_START,
-        )
+        self.device_dropdown.setEnabled(False)
 
-    def stop_test(self):
+        command = Command(CommandId.TEST_START)
+        command.params["duration"] = duration
+        self.stopped_test.emit(self.selected_device, command)
+
+    @pyqtSlot()
+    def stop_test(self) -> None:
         logging.info("Stopping test!")
+
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
-        self.stopped_test.emit(
-            self.entry_ip.text(), int(self.entry_port.text()), CommandId.TEST_STOP
-        )
+        self.device_dropdown.setEnabled(True)
 
+        self.stopped_test.emit(self.selected_device, Command(CommandId.TEST_STOP))
+
+    @pyqtSlot()
     def discover_devices(self) -> None:
         """Slot for the select button"""
         address = self.entry_ip.text()
@@ -236,10 +244,13 @@ class MainWindow(QMainWindow):
             return
 
         logging.debug(f"Requested device discovery on {address}:{port}")
-        self.requested_discovery.emit(address, port, CommandId.ID)
+        device = Device(
+            "", "", address, port
+        )  # even in multicast we treat the destination as a device
+        self.requested_discovery.emit(device, Command(CommandId.ID))
 
     @pyqtSlot()
-    def show_device_info(self):
+    def show_device_info(self) -> None:
         if self.device_dropdown.currentText() == self.device_placeholder:
             self.selected_device_model.clear()
             self.selected_device_serial.clear()

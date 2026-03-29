@@ -8,6 +8,7 @@ from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal
 
 from codec import (
     Codec,
+    Command,
     CommandId,
     DeviceError,
     EncodeError,
@@ -18,6 +19,7 @@ from device import Device
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115
+MIN_TIMEOUT_SECONDS = 5
 
 
 class Server(QObject):
@@ -28,17 +30,22 @@ class Server(QObject):
         super().__init__()
         self.codec = Codec()
 
-    @pyqtSlot(str, int, CommandId)
-    def command(self, address: str, port: int, command: CommandId):
+    @pyqtSlot(Device, Command)
+    def command(self, device: Device, command: Command):
         thread = threading.Thread(
             target=self.do_transaction,
-            args=[address, port, command],
+            args=[device.address, device.port, command],
             daemon=True,
         )
         thread.start()
 
-    def do_transaction(self, address: str, port: int, command: CommandId):
-        logging.debug(f"Starting transaction for command {command.name}")
+    def do_transaction(
+        self,
+        address: str,
+        port: int,
+        command: Command,
+    ):
+        logging.debug(f"Starting transaction for command {command.id.name}")
 
         try:
             data = self.codec.encode(command)
@@ -56,11 +63,14 @@ class Server(QObject):
         sock.sendto(data, (address, port))
         logging.info(f"Sent to {address}:{port} from socket {sock.getsockname()}")
 
+        timeout = command.params.get("duration", 0) + MIN_TIMEOUT_SECONDS
+        logging.debug(f"Setting timeout to {timeout} seconds")
+
         while True:
-            ready = select.select([sock], [], [], 5)
+            ready = select.select([sock], [], [], timeout)
             if not ready[0]:
                 logging.warning(
-                    f"Timed out while waiting for response from command {command.name} sent to {address}:{port}"
+                    f"Timed out while waiting for response from command {command.id.name} sent to {address}:{port}"
                 )
                 return
 
@@ -78,7 +88,7 @@ class Server(QObject):
                 f"Received: {repr(response.raw)} (ID={response.id}) from {device_address}"
             )
 
-            match command:
+            match command.id:
                 case CommandId.TEST_STOP:
                     break
                 case CommandId.TEST_START:
@@ -96,5 +106,7 @@ class Server(QObject):
                         *device_address,
                     )
                     self.discovered_device.emit(device)
+                case _:
+                    logging.error(f"Command '{command}' not recognised!")
 
-        logging.debug(f"Completed transaction for command {command.name}")
+        logging.debug(f"Completed transaction for command {command.id.name}")
