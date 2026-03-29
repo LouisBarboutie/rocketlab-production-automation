@@ -17,6 +17,18 @@ class CommandId(IntEnum):
     TEST_STOP = 2
 
 
+class ResponseId(IntEnum):
+    """Response format templates to be matched by the decoder."""
+
+    ID = 0
+    TEST_START = 1
+    TEST_STOP = 2
+    TEST_ERR = 3
+    STATUS_MEASURE = 4
+    STATUS_STATE = 5
+    ERROR = 6
+
+
 class CommandFormat(StrEnum):
     """Command format templates to be completed by the encoder."""
 
@@ -40,6 +52,7 @@ class ResponseFormat(StrEnum):
 @dataclass
 class Response:
     raw: str
+    id: ResponseId
     payload: Dict[str, Any] = field(init=False, default_factory=dict)
 
 
@@ -49,6 +62,11 @@ class EncodeError(Exception):
 
 
 class DecodeError(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class DeviceError(Exception):
     def __init__(self, message: str):
         super().__init__(message)
 
@@ -66,12 +84,13 @@ class Codec(QObject):
         self.encoding = "iso-8859-1"
         self.patterns = {entry: re.compile(entry.value) for entry in ResponseFormat}
 
-    def encode(self, command: CommandFormat, duration: int = 10, rate=1000) -> bytes:
-        match command:
+    def encode(self, command: CommandId, duration: int = 10, rate=1000) -> bytes:
+        template = CommandFormat[command.name]
+        match template:
             case CommandFormat.ID | CommandFormat.TEST_STOP:
-                for_sending = command.value
+                for_sending = template.value
             case CommandFormat.TEST_START:
-                for_sending = command.value.format(duration=duration, rate=rate)
+                for_sending = template.value.format(duration=duration, rate=rate)
             case _:
                 raise EncodeError("Unknown command")
 
@@ -91,20 +110,18 @@ class Codec(QObject):
         else:
             raise DecodeError("Unknown response format")
 
-        response = Response(decoded)
-        match key:
-            case ResponseFormat.ID:
+        response_id = ResponseId[key.name]
+        response = Response(decoded, response_id)
+        match response_id:
+            case ResponseId.ID:
                 response.payload["model"] = m.group(1)
                 response.payload["serial"] = m.group(2)
-            case (
-                ResponseFormat.TEST_START
-                | ResponseFormat.TEST_STOP
-                | ResponseFormat.STATUS_STATE
-            ):
+            case ResponseId.TEST_START | ResponseId.TEST_STOP | ResponseId.STATUS_STATE:
                 pass
-            case ResponseFormat.TEST_ERR | ResponseFormat.ERROR:
+            case ResponseId.TEST_ERR | ResponseId.ERROR:
                 response.payload["error"] = m.group(1)
-            case ResponseFormat.STATUS_MEASURE:
+                raise DeviceError("Device returned an error code")
+            case ResponseId.STATUS_MEASURE:
                 try:
                     response.payload["t"] = int(m.group(1))
                     response.payload["mv"] = float(m.group(2))
@@ -113,5 +130,7 @@ class Codec(QObject):
                     raise DecodeError(
                         f"Couldn't convert measurements to numeric: time={m.group(1)}, mv={m.group(2)}, ma={m.group(3)}"
                     )
+            case _:
+                raise DecodeError("Unknown response")
 
         return response

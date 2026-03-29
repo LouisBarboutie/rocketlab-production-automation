@@ -6,7 +6,14 @@ import threading
 
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal
 
-from codec import Codec, CommandFormat, CommandId, EncodeError, DecodeError
+from codec import (
+    Codec,
+    CommandId,
+    DeviceError,
+    EncodeError,
+    DecodeError,
+    ResponseId,
+)
 from device import Device
 
 MULTICAST_ADDR = "224.3.11.15"
@@ -15,6 +22,7 @@ MULTICAST_PORT = 31115
 
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
+    received_measurement = pyqtSignal(int, float, float)
 
     def __init__(self) -> None:
         super().__init__()
@@ -24,12 +32,12 @@ class Server(QObject):
     def command(self, address: str, port: int, command: CommandId):
         thread = threading.Thread(
             target=self.do_transaction,
-            args=[address, port, CommandFormat[command.name]],
+            args=[address, port, command],
             daemon=True,
         )
         thread.start()
 
-    def do_transaction(self, address: str, port: int, command: CommandFormat):
+    def do_transaction(self, address: str, port: int, command: CommandId):
         logging.debug(f"Starting transaction for command {command.name}")
 
         try:
@@ -62,15 +70,26 @@ class Server(QObject):
             except DecodeError as error:
                 logging.error(f"Failed to decode response: {error}")
                 continue
+            except DeviceError as error:
+                logging.error(f"Device returned an unrecoverable error, aborting")
+                return
 
-            logging.info(f"Received: {repr(response.raw)} from {device_address}")
+            logging.info(
+                f"Received: {repr(response.raw)} (ID={response.id}) from {device_address}"
+            )
 
             match command:
-                case CommandFormat.TEST_STOP:
+                case CommandId.TEST_STOP:
                     break
-                case CommandFormat.TEST_START:
+                case CommandId.TEST_START:
+                    if response.id == ResponseId.STATUS_MEASURE:
+                        self.received_measurement.emit(
+                            response.payload["t"],
+                            response.payload["mv"],
+                            response.payload["ma"],
+                        )
                     continue
-                case CommandFormat.ID:
+                case CommandId.ID:
                     device = Device(
                         response.payload["model"],
                         response.payload["serial"],
