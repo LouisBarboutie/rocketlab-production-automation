@@ -42,7 +42,6 @@ app = QApplication(sys.argv)
 server = Server()
 window = MainWindow()
 
-window.device_selected.connect(server.command)
 window.started_test.connect(server.command)
 window.stopped_test.connect(server.command)
 window.requested_discovery.connect(server.command)

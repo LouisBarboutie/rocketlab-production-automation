@@ -32,7 +32,6 @@ MAX_TEST_DURATION_SECONDS = 3600
 
 class MainWindow(QMainWindow):
 
-    device_selected = pyqtSignal(str, int, CommandId)
     started_test = pyqtSignal(str, int, CommandId)
     stopped_test = pyqtSignal(str, int, CommandId)
     requested_discovery = pyqtSignal(str, int, CommandId)
@@ -44,35 +43,25 @@ class MainWindow(QMainWindow):
 
         # --- Widget creation ---
 
-        self.label_select_device = QLabel()
-        self.label_select_device.setText("Selected device:")
         self.selected_device = QComboBox()
         self.selected_device.setDuplicatesEnabled(False)
 
         self.button_discover = QPushButton("Discover")
         self.button_discover.clicked.connect(self.discover_devices)
 
-        self.label_ip = QLabel()
-        self.label_ip.setText("IPv4 address:")
         self.entry_ip = QLineEdit()
         self.entry_ip.setText("224.3.11.15")
 
-        self.label_port = QLabel()
-        self.label_port.setText("Port number:")
         self.entry_port = QLineEdit()
         self.entry_port.setValidator(QIntValidator())
         self.entry_port.setText("31115")
 
-        self.label_duration = QLabel()
-        self.label_duration.setText("Test duration:")
         self.entry_duration = QLineEdit()
         self.entry_duration.setValidator(QIntValidator())
         self.entry_duration.setText("10")
 
-        self.button_select = QPushButton("Select")
         self.button_start = QPushButton("Start")
         self.button_stop = QPushButton("Stop")
-        self.button_select.clicked.connect(self.select_device)
         self.button_start.clicked.connect(self.start_test)
         self.button_stop.clicked.connect(self.stop_test)
 
@@ -87,42 +76,49 @@ class MainWindow(QMainWindow):
 
         # --- Widget placement ---
 
-        params = QGridLayout()
-        params.addWidget(self.label_ip, 0, 0, Qt.AlignmentFlag.AlignRight)
-        params.addWidget(self.entry_ip, 0, 1, Qt.AlignmentFlag.AlignLeft)
-        params.addWidget(self.label_port, 1, 0, Qt.AlignmentFlag.AlignRight)
-        params.addWidget(self.entry_port, 1, 1, Qt.AlignmentFlag.AlignLeft)
-        params.addWidget(self.label_duration, 2, 0, Qt.AlignmentFlag.AlignRight)
-        params.addWidget(self.entry_duration, 2, 1, Qt.AlignmentFlag.AlignLeft)
-        params.addWidget(self.label_select_device, 3, 0, Qt.AlignmentFlag.AlignRight)
-        params.addWidget(self.selected_device, 3, 1, Qt.AlignmentFlag.AlignLeft)
+        # fmt:off
+        discovery_layout = QGridLayout()
+        discovery_layout.addWidget(QLabel("IPv4 address:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
+        discovery_layout.addWidget(QLabel("Port number:"), 1, 0, Qt.AlignmentFlag.AlignLeft)
+        discovery_layout.addWidget(self.entry_ip, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        discovery_layout.addWidget(self.entry_port, 1, 1, Qt.AlignmentFlag.AlignLeft)
+        discovery_layout.addWidget(self.button_discover, 3, 0, 1, 2, Qt.AlignmentFlag.AlignCenter)
+        # fmt: on
 
-        buttons = QVBoxLayout()
-        buttons.addWidget(self.button_discover)
-        buttons.addWidget(self.button_select)
-        buttons.addWidget(self.button_start)
-        buttons.addWidget(self.button_stop)
+        discovery_box = QGroupBox("Device discovery")
+        discovery_box.setLayout(discovery_layout)
 
-        control_box = QGroupBox("Control")
-        control_box.setLayout(buttons)
+        # fmt:off
+        selection_layout = QGridLayout()
+        selection_layout.addWidget(QLabel("Selected device:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(self.selected_device, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(QLabel("Model No:"), 1, 0)
+        selection_layout.addWidget(QLabel("Serial No:"), 2, 0)
+        selection_layout.addWidget(QLabel("IPv4 addr:"), 3, 0)
+        selection_layout.addWidget(QLabel("Port No:"), 4, 0)
+        # fmt: on
 
-        param_box = QGroupBox("Parameters")
-        param_box.setLayout(params)
+        selection_box = QGroupBox("Device selection")
+        selection_box.setLayout(selection_layout)
 
-        layout = QHBoxLayout()
-        layout.addWidget(param_box)
-        layout.addWidget(control_box)
-        layout.addWidget(self.plot_widget)
+        control_layout = QGridLayout()
+        control_layout.addWidget(QLabel("Test duration:"), 0, 0)
+        control_layout.addWidget(self.entry_duration, 0, 1)
+        control_layout.addWidget(self.button_start, 1, 0, 1, 2)
+        control_layout.addWidget(self.button_stop, 2, 0, 1, 2)
+
+        control_box = QGroupBox("Test control")
+        control_box.setLayout(control_layout)
+
+        layout = QGridLayout()
+        layout.addWidget(discovery_box, 0, 0)
+        layout.addWidget(selection_box, 1, 0)
+        layout.addWidget(control_box, 2, 0)
+        layout.addWidget(self.plot_widget, 0, 1, -1, -1)
 
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
-
-    def discover_devices(self) -> None:
-        self.available_devices.clear()
-        address = self.entry_ip.text()
-        port = int(self.entry_port.text())
-        self.requested_discovery.emit(address, port, CommandId.ID)
 
     @pyqtSlot(Device)
     def add_device(self, device: Device) -> None:
@@ -171,7 +167,8 @@ class MainWindow(QMainWindow):
             self.entry_ip.text(), int(self.entry_port.text()), CommandId.TEST_STOP
         )
 
-    def select_device(self):
+    def discover_devices(self) -> None:
+        self.available_devices.clear()
         """Slot for the select button"""
         address = self.entry_ip.text()
         if not address:
@@ -210,8 +207,8 @@ class MainWindow(QMainWindow):
 
             return
 
-        logging.debug(f"Selected device on {address}:{port}")
-        self.device_selected.emit(address, port, CommandId.ID)
+        logging.debug(f"Requested device discovery on {address}:{port}")
+        self.requested_discovery.emit(address, port, CommandId.ID)
 
     @staticmethod
     def is_valid_ipv4(address: str) -> bool:
