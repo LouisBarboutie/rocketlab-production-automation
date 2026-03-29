@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
         self.available_devices: Dict[str, Device] = {}
-        self.selected_device: Device | None
+        self.selected_device: Device | None = None
 
         # --- Widget creation ---
 
@@ -119,8 +119,10 @@ class MainWindow(QMainWindow):
         selection_box.setLayout(selection_layout)
 
         control_layout = QGridLayout()
-        control_layout.addWidget(QLabel("Test duration:"), 0, 0)
-        control_layout.addWidget(self.entry_duration, 0, 1)
+        control_layout.addWidget(
+            QLabel("Test duration:"), 0, 0, Qt.AlignmentFlag.AlignLeft
+        )
+        control_layout.addWidget(self.entry_duration, 0, 1, Qt.AlignmentFlag.AlignLeft)
         control_layout.addWidget(self.button_start, 1, 0, 1, 2)
         control_layout.addWidget(self.button_stop, 2, 0, 1, 2)
 
@@ -167,6 +169,13 @@ class MainWindow(QMainWindow):
             dialog.exec()
             return
 
+        if self.selected_device is None:
+            logging.debug("No device selected")
+            dialog = QMessageBox(self)
+            dialog.setText("Please select a device")
+            dialog.exec()
+            return
+
         logging.info("Starting test!")
         self.button_start.setEnabled(False)
         self.button_stop.setEnabled(True)
@@ -174,7 +183,9 @@ class MainWindow(QMainWindow):
         self.ydata = np.sin(self.xdata)
         self.plot_item.items[0].setData(self.xdata, self.ydata)
         self.stopped_test.emit(
-            self.entry_ip.text(), int(self.entry_port.text()), CommandId.TEST_START
+            self.selected_device.address,
+            self.selected_device.port,
+            CommandId.TEST_START,
         )
 
     def stop_test(self):
