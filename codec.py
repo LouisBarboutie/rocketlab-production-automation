@@ -32,7 +32,8 @@ class Response(StrEnum):
     TEST_STOP = r"TEST;RESULT=STOPPED;"
     TEST_ERR = r"TEST;RESULT=(\w+);MSG=(\w+);"
     STATUS_MEASURE = r"STATUS;TIME=(\d+);MV=([+-]?[\d.]+);MA=([+-]?[\d.]+);"
-    STATUS_STATE = r"STATUS;STATE=IDLE"
+    STATUS_STATE = r"STATUS;STATE=IDLE;"
+    ERROR = r"ERR;REASON=([^;]+);"
 
 
 class Codec(QObject):
@@ -48,7 +49,7 @@ class Codec(QObject):
         self.encoding = "iso-8859-1"
         self.patterns = {entry: re.compile(entry.value) for entry in Response}
 
-    def encode(self, command: Command, duration: int = 0, rate=1000) -> bytes:
+    def encode(self, command: Command, duration: int = 10, rate=1000) -> bytes:
         match command:
             case Command.ID | Command.TEST_STOP:
                 for_sending = command.value
@@ -63,16 +64,16 @@ class Codec(QObject):
     def decode(self, data: bytes) -> str:
         decoded = data.decode(self.encoding)
 
-        logging.debug(f"Decoding data {decoded}")
+        logging.debug(f"Decoding data {repr(decoded)}")
 
         for key, pattern in self.patterns.items():
             m = pattern.fullmatch(decoded)
             if m is not None:
+                logging.debug(f"Matched response format for response {key.name}")
                 break
         else:
             logging.error("Unknown response format!")
-
-        logging.debug(f"Matched response format for response {key.name}")
+            return decoded
 
         match key:
             case Response.ID:
@@ -98,6 +99,8 @@ class Codec(QObject):
                 self.measurement.emit(time, milli_volt, milli_amps)
             case Response.STATUS_STATE:
                 pass
+            case Response.ERROR:
+                logging.error(f"Device reported error: {m.group(1)}")
 
         return decoded
 
