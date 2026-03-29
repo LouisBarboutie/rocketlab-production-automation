@@ -217,17 +217,19 @@ class MainWindow(QMainWindow):
 
         command = Command(CommandId.TEST_START)
         command.params["duration"] = duration
-        self.stopped_test.emit(self.selected_device, command)
+        self.started_test.emit(self.selected_device, command)
 
     @pyqtSlot()
     def stop_test(self) -> None:
         logging.info("Stopping test!")
+        self.stopped_test.emit(self.selected_device, Command(CommandId.TEST_STOP))
+        self.end_test()
 
+    @pyqtSlot()
+    def end_test(self) -> None:
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
         self.device_dropdown.setEnabled(True)
-
-        self.stopped_test.emit(self.selected_device, Command(CommandId.TEST_STOP))
 
     @pyqtSlot()
     def discover_devices(self) -> None:

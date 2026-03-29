@@ -26,6 +26,7 @@ MIN_TIMEOUT_SECONDS = 5
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
     received_measurement = pyqtSignal(int, float, float)
+    finished_measurement = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -107,7 +108,11 @@ class Server(QObject):
                             response.payload["mv"],
                             response.payload["ma"],
                         )
-                    continue
+                        continue
+
+                    if response.id == ResponseId.STATUS_STATE:
+                        self.finished_measurement.emit()
+                        return
                 case CommandId.ID:
                     device = Device(
                         response.payload["model"],

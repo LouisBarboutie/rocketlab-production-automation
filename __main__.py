@@ -45,8 +45,10 @@ window = MainWindow()
 window.started_test.connect(server.command)
 window.stopped_test.connect(server.command)
 window.requested_discovery.connect(server.command)
+
 server.discovered_device.connect(window.add_device)
 server.received_measurement.connect(window.update_plot)
+server.finished_measurement.connect(window.end_test)
 
 window.show()
 sys.exit(app.exec())
