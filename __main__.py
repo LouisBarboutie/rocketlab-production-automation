@@ -5,6 +5,7 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from mainwindow import MainWindow
+from server import Server
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", action="store_true", default=False)
@@ -38,7 +39,12 @@ logging.basicConfig(level=level, handlers=[handler])
 
 app = QApplication(sys.argv)
 
+server = Server()
 window = MainWindow()
-window.show()
 
+window.selected_device.connect(server.command)
+window.started_test.connect(server.command)
+window.stopped_test.connect(server.command)
+
+window.show()
 sys.exit(app.exec())

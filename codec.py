@@ -1,17 +1,32 @@
-from enum import Enum, StrEnum
+from enum import Enum, StrEnum, IntEnum
+import logging
 import re
 from string import Template
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+# TODO Clean these enums up, maybe wrap them into dicts in the init. The only remaining enum should be CommandId
+
+
+class CommandId(IntEnum):
+    """Command identifiers to be emitted by PyQt signals."""
+
+    ID = 0
+    TEST_START = 1
+    TEST_STOP = 2
+
 
 class Command(StrEnum):
+    """Command format templates to be completed by the encoder."""
+
     ID = "ID;"
     TEST_START = "TEST;CMD=START;DURATION={duration};RATE={rate};"
     TEST_STOP = "TEST;CMD=STOP;"
 
 
 class Response(StrEnum):
+    """Response format templates to be matched by the decoder."""
+
     ID = r"ID;MODEL=(\w+);SERIAL=(\w+);"
     TEST_START = r"TEST;RESULT=STARTED;"
     TEST_STOP = r"TEST;RESULT=STOPPED;"
@@ -42,18 +57,22 @@ class Codec(QObject):
             case _:
                 print("Unknown command")
 
-        print(f"Encoded: {for_sending}")
+        logging.debug(f"Built command {repr(for_sending)}")
         return for_sending.encode(self.encoding)
 
-    def decode(self, data: bytes) -> None:
+    def decode(self, data: bytes) -> str:
         decoded = data.decode(self.encoding)
+
+        logging.debug(f"Decoding data {decoded}")
 
         for key, pattern in self.patterns.items():
             m = pattern.fullmatch(decoded)
             if m is not None:
                 break
         else:
-            print("Unknown response format!")
+            logging.error("Unknown response format!")
+
+        logging.debug(f"Matched response format for response {key.name}")
 
         match key:
             case Response.ID:
@@ -79,6 +98,8 @@ class Codec(QObject):
                 self.measurement.emit(time, milli_volt, milli_amps)
             case Response.STATUS_STATE:
                 pass
+
+        return decoded
 
 
 if __name__ == "__main__":

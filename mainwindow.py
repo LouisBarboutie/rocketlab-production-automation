@@ -18,6 +18,8 @@ from PyQt5.QtWidgets import (
 )
 from pyqtgraph import PlotWidget, PlotItem
 
+from codec import CommandId
+
 MIN_PORT_NUMBER = 0
 MAX_PORT_NUMBER = 65535
 
@@ -27,7 +29,9 @@ MAX_TEST_DURATION_SECONDS = 3600
 
 class MainWindow(QMainWindow):
 
-    selected_device = pyqtSignal(str, int)
+    selected_device = pyqtSignal(str, int, CommandId)
+    started_test = pyqtSignal(str, int, CommandId)
+    stopped_test = pyqtSignal(str, int, CommandId)
 
     def __init__(self) -> None:
         super().__init__()
@@ -38,16 +42,19 @@ class MainWindow(QMainWindow):
         self.label_ip = QLabel()
         self.label_ip.setText("IPv4 address:")
         self.entry_ip = QLineEdit()
+        self.entry_ip.setText("224.3.11.15")
 
         self.label_port = QLabel()
         self.label_port.setText("Port number:")
         self.entry_port = QLineEdit()
         self.entry_port.setValidator(QIntValidator())
+        self.entry_port.setText("31115")
 
         self.label_duration = QLabel()
         self.label_duration.setText("Test duration:")
         self.entry_duration = QLineEdit()
         self.entry_duration.setValidator(QIntValidator())
+        self.entry_duration.setText("10")
 
         self.button_select = QPushButton("Select")
         self.button_start = QPushButton("Start")
@@ -121,11 +128,17 @@ class MainWindow(QMainWindow):
         self.xdata += 1
         self.ydata = np.sin(self.xdata)
         self.plot_item.items[0].setData(self.xdata, self.ydata)
+        self.stopped_test.emit(
+            self.entry_ip.text(), int(self.entry_port.text()), CommandId.TEST_START
+        )
 
     def stop_test(self):
         logging.info("Stopping test!")
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
+        self.stopped_test.emit(
+            self.entry_ip.text(), int(self.entry_port.text()), CommandId.TEST_STOP
+        )
 
     def select_device(self):
         """Slot for the select button"""
@@ -167,7 +180,7 @@ class MainWindow(QMainWindow):
             return
 
         logging.debug(f"Selected device on {address}:{port}")
-        self.selected_device.emit(address, port)
+        self.selected_device.emit(address, port, CommandId.ID)
 
     @staticmethod
     def is_valid_ipv4(address: str) -> bool:
