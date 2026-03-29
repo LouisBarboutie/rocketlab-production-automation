@@ -1,9 +1,10 @@
 import logging
 import ipaddress
+from typing import Dict
 
 from PyQt5.QtGui import QIntValidator
 import numpy as np
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
@@ -15,10 +16,12 @@ from PyQt5.QtWidgets import (
     QWidget,
     QGridLayout,
     QGroupBox,
+    QComboBox,
 )
 from pyqtgraph import PlotWidget, PlotItem
 
 from codec import CommandId
+from device import Device
 
 MIN_PORT_NUMBER = 0
 MAX_PORT_NUMBER = 65535
@@ -29,15 +32,25 @@ MAX_TEST_DURATION_SECONDS = 3600
 
 class MainWindow(QMainWindow):
 
-    selected_device = pyqtSignal(str, int, CommandId)
+    device_selected = pyqtSignal(str, int, CommandId)
     started_test = pyqtSignal(str, int, CommandId)
     stopped_test = pyqtSignal(str, int, CommandId)
+    requested_discovery = pyqtSignal(str, int, CommandId)
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
+        self.available_devices: Dict[str, Device] = {}
 
         # --- Widget creation ---
+
+        self.label_select_device = QLabel()
+        self.label_select_device.setText("Selected device:")
+        self.selected_device = QComboBox()
+        self.selected_device.setDuplicatesEnabled(False)
+
+        self.button_discover = QPushButton("Discover")
+        self.button_discover.clicked.connect(self.discover_devices)
 
         self.label_ip = QLabel()
         self.label_ip.setText("IPv4 address:")
@@ -81,8 +94,11 @@ class MainWindow(QMainWindow):
         params.addWidget(self.entry_port, 1, 1, Qt.AlignmentFlag.AlignLeft)
         params.addWidget(self.label_duration, 2, 0, Qt.AlignmentFlag.AlignRight)
         params.addWidget(self.entry_duration, 2, 1, Qt.AlignmentFlag.AlignLeft)
+        params.addWidget(self.label_select_device, 3, 0, Qt.AlignmentFlag.AlignRight)
+        params.addWidget(self.selected_device, 3, 1, Qt.AlignmentFlag.AlignLeft)
 
         buttons = QVBoxLayout()
+        buttons.addWidget(self.button_discover)
         buttons.addWidget(self.button_select)
         buttons.addWidget(self.button_start)
         buttons.addWidget(self.button_stop)
@@ -101,6 +117,21 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+
+    def discover_devices(self) -> None:
+        self.available_devices.clear()
+        address = self.entry_ip.text()
+        port = int(self.entry_port.text())
+        self.requested_discovery.emit(address, port, CommandId.ID)
+
+    @pyqtSlot(Device)
+    def add_device(self, device: Device) -> None:
+        self.available_devices[device.serial] = device
+        entries = list(self.available_devices.keys())
+        entries.sort()
+        self.selected_device.clear()
+        self.selected_device.addItems(entries)
+        logging.debug(f"Added device {device}")
 
     def start_test(self):
         if not (text := self.entry_duration.text()):
@@ -180,7 +211,7 @@ class MainWindow(QMainWindow):
             return
 
         logging.debug(f"Selected device on {address}:{port}")
-        self.selected_device.emit(address, port, CommandId.ID)
+        self.device_selected.emit(address, port, CommandId.ID)
 
     @staticmethod
     def is_valid_ipv4(address: str) -> bool:

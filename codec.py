@@ -1,7 +1,8 @@
-from enum import Enum, StrEnum, IntEnum
+from dataclasses import dataclass, field
+from enum import StrEnum, IntEnum
+from typing import Dict, Any, Optional
 import logging
 import re
-from string import Template
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -16,7 +17,7 @@ class CommandId(IntEnum):
     TEST_STOP = 2
 
 
-class Command(StrEnum):
+class CommandFormat(StrEnum):
     """Command format templates to be completed by the encoder."""
 
     ID = "ID;"
@@ -24,16 +25,32 @@ class Command(StrEnum):
     TEST_STOP = "TEST;CMD=STOP;"
 
 
-class Response(StrEnum):
+class ResponseFormat(StrEnum):
     """Response format templates to be matched by the decoder."""
 
     ID = r"ID;MODEL=(\w+);SERIAL=(\w+);"
     TEST_START = r"TEST;RESULT=STARTED;"
     TEST_STOP = r"TEST;RESULT=STOPPED;"
-    TEST_ERR = r"TEST;RESULT=(\w+);MSG=(\w+);"
+    TEST_ERR = r"TEST;RESULT=(\w+);MSG=([^;]+);"
     STATUS_MEASURE = r"STATUS;TIME=(\d+);MV=([+-]?[\d.]+);MA=([+-]?[\d.]+);"
     STATUS_STATE = r"STATUS;STATE=IDLE;"
     ERROR = r"ERR;REASON=([^;]+);"
+
+
+@dataclass
+class Response:
+    raw: str
+    payload: Dict[str, Any] = field(init=False, default_factory=dict)
+
+
+class EncodeError(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class DecodeError(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class Codec(QObject):
@@ -47,21 +64,21 @@ class Codec(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.encoding = "iso-8859-1"
-        self.patterns = {entry: re.compile(entry.value) for entry in Response}
+        self.patterns = {entry: re.compile(entry.value) for entry in ResponseFormat}
 
-    def encode(self, command: Command, duration: int = 10, rate=1000) -> bytes:
+    def encode(self, command: CommandFormat, duration: int = 10, rate=1000) -> bytes:
         match command:
-            case Command.ID | Command.TEST_STOP:
+            case CommandFormat.ID | CommandFormat.TEST_STOP:
                 for_sending = command.value
-            case Command.TEST_START:
+            case CommandFormat.TEST_START:
                 for_sending = command.value.format(duration=duration, rate=rate)
             case _:
-                print("Unknown command")
+                raise EncodeError("Unknown command")
 
         logging.debug(f"Built command {repr(for_sending)}")
         return for_sending.encode(self.encoding)
 
-    def decode(self, data: bytes) -> str:
+    def decode(self, data: bytes) -> Response:
         decoded = data.decode(self.encoding)
 
         logging.debug(f"Decoding data {repr(decoded)}")
@@ -72,48 +89,29 @@ class Codec(QObject):
                 logging.debug(f"Matched response format for response {key.name}")
                 break
         else:
-            logging.error("Unknown response format!")
-            return decoded
+            raise DecodeError("Unknown response format")
 
+        response = Response(decoded)
         match key:
-            case Response.ID:
-                self.decoded_id.emit(m.group(1), m.group(2))
-            case Response.TEST_START:
-                self.test_started.emit()
-            case Response.TEST_STOP:
-                self.test_stopped.emit()
-            case Response.TEST_ERR:
-                self.test_error.emit()
-            case Response.STATUS_MEASURE:
-                try:
-                    time = int(m.group(1))
-                    milli_volt = float(m.group(2))
-                    milli_amps = float(m.group(3))
-                except ValueError as error:
-                    print(
-                        f"Couldn't convert measurements to numeric: time={m.group(1)}, mv={m.group(2)}, ma={m.group(3)}",
-                        error,
-                        sep="\n",
-                    )
-                    return
-                self.measurement.emit(time, milli_volt, milli_amps)
-            case Response.STATUS_STATE:
+            case ResponseFormat.ID:
+                response.payload["model"] = m.group(1)
+                response.payload["serial"] = m.group(2)
+            case (
+                ResponseFormat.TEST_START
+                | ResponseFormat.TEST_STOP
+                | ResponseFormat.STATUS_STATE
+            ):
                 pass
-            case Response.ERROR:
-                logging.error(f"Device reported error: {m.group(1)}")
+            case ResponseFormat.TEST_ERR | ResponseFormat.ERROR:
+                response.payload["error"] = m.group(1)
+            case ResponseFormat.STATUS_MEASURE:
+                try:
+                    response.payload["t"] = int(m.group(1))
+                    response.payload["mv"] = float(m.group(2))
+                    response.payload["ma"] = float(m.group(3))
+                except ValueError:
+                    raise DecodeError(
+                        f"Couldn't convert measurements to numeric: time={m.group(1)}, mv={m.group(2)}, ma={m.group(3)}"
+                    )
 
-        return decoded
-
-
-if __name__ == "__main__":
-    s = "ID;MODEL=;SERIAL=;"
-    pattern = re.compile(Response["ID"])
-    m = pattern.fullmatch(s)
-    if m is not None:
-        print(m.group(1), m.group(2))
-
-    codec = Codec()
-
-    s = "STTUS;TIME=1000;MV=4471.6;MA=38.3;"
-    codec.decode(s.encode(codec.encoding))
-    codec.encode(Command.TEST_START, 10)
+        return response
