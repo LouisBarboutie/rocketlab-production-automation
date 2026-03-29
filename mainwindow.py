@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QLineEdit,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -24,6 +25,15 @@ MIN_TEST_DURATION_SECONDS = 0
 MAX_TEST_DURATION_SECONDS = 3600
 
 
+class QLogDisplay(QPlainTextEdit):
+    def __init__(self):
+        super().__init__()
+        self.setReadOnly(True)
+
+    def log(self, message: str):
+        self.appendPlainText(message)
+
+
 class MainWindow(QMainWindow):
 
     selected_device = pyqtSignal(str, int)
@@ -31,6 +41,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
+
+        # --- Widget creation ---
 
         self.label_ip = QLabel()
         self.label_ip.setText("Target device IP:")
@@ -62,6 +74,10 @@ class MainWindow(QMainWindow):
         self.plot_item.plot(self.xdata, self.ydata)
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
+        self.log = QLogDisplay()
+
+        # --- Widget placement ---
+
         params = QGridLayout()
         params.addWidget(self.label_ip, 0, 0, Qt.AlignmentFlag.AlignRight)
         params.addWidget(self.entry_ip, 0, 1, Qt.AlignmentFlag.AlignLeft)
@@ -85,6 +101,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(param_box)
         layout.addWidget(control_box)
         layout.addWidget(self.plot_widget)
+        layout.addWidget(self.log)
 
         widget = QWidget()
         widget.setLayout(layout)
