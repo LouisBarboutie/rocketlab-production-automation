@@ -82,10 +82,12 @@ class MainWindow(QMainWindow):
         self.plot_item.setLabel("bottom", "time [s]")
         self.plot_item.setLabel("left", "Value [a.u.]")
 
-        self.xdata: List[float] = []
-        self.ydata: List[float] = []
+        self.time: List[float] = []
+        self.milli_volts: List[float] = []
+        self.milli_amps: List[float] = []
         self.window_size_seconds = 10
-        self.curve = self.plot_item.plot(self.xdata, self.ydata)
+        self.curve_volts = self.plot_item.plot()
+        self.curve_amps = self.plot_item.plot()
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
         # --- Widget placement ---
@@ -152,11 +154,14 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int, float, float)
     def update_plot(self, time: int, milli_volts: float, milli_amps: float) -> None:
-        self.xdata.append(time / 1000)
-        self.ydata.append(milli_volts)
-        self.curve.setData(self.xdata, self.ydata)
+        self.time.append(time / 1000)
+        self.milli_volts.append(milli_volts)
+        self.milli_amps.append(milli_amps)
 
-        upper = self.xdata[-1]
+        self.curve_volts.setData(self.time, self.milli_volts)
+        self.curve_amps.setData(self.time, self.milli_amps)
+
+        upper = self.time[-1]
         lower = upper - self.window_size_seconds
 
         if upper < self.window_size_seconds:
@@ -193,6 +198,16 @@ class MainWindow(QMainWindow):
             dialog.setText("Please select a device")
             dialog.exec()
             return
+
+        logging.debug("Clearing plot")
+
+        self.curve_volts.clear()
+        self.curve_amps.clear()
+        self.plot_item.update()
+
+        self.time.clear()
+        self.milli_volts.clear()
+        self.milli_amps.clear()
 
         logging.info("Starting test!")
 
