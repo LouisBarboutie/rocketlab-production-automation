@@ -14,6 +14,7 @@ from codec import (
     EncodeError,
     DecodeError,
     ResponseId,
+    DEFAULT_RATE_MILLISECONDS,
 )
 from device import Device
 
@@ -65,6 +66,7 @@ class Server(QObject):
 
         timeout = command.params.get("duration", 0) + MIN_TIMEOUT_SECONDS
         logging.debug(f"Setting timeout to {timeout} seconds")
+        last_packet_time = 0
 
         while True:
             ready = select.select([sock], [], [], timeout)
@@ -93,6 +95,13 @@ class Server(QObject):
                     break
                 case CommandId.TEST_START:
                     if response.id == ResponseId.STATUS_MEASURE:
+                        expected_time = last_packet_time + DEFAULT_RATE_MILLISECONDS
+                        if response.payload["t"] != expected_time:
+                            logging.warning(
+                                f"Packet loss detected for timestamp {expected_time}"
+                            )
+                        last_packet_time = response.payload["t"]
+
                         self.received_measurement.emit(
                             response.payload["t"],
                             response.payload["mv"],
