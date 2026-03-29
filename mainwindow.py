@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QLineEdit,
     QLabel,
-    QPlainTextEdit,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -25,15 +25,6 @@ MIN_TEST_DURATION_SECONDS = 0
 MAX_TEST_DURATION_SECONDS = 3600
 
 
-class QLogDisplay(QPlainTextEdit):
-    def __init__(self):
-        super().__init__()
-        self.setReadOnly(True)
-
-    def log(self, message: str):
-        self.appendPlainText(message)
-
-
 class MainWindow(QMainWindow):
 
     selected_device = pyqtSignal(str, int)
@@ -45,11 +36,11 @@ class MainWindow(QMainWindow):
         # --- Widget creation ---
 
         self.label_ip = QLabel()
-        self.label_ip.setText("Target device IP:")
+        self.label_ip.setText("IPv4 address:")
         self.entry_ip = QLineEdit()
 
         self.label_port = QLabel()
-        self.label_port.setText("Target device port:")
+        self.label_port.setText("Port number:")
         self.entry_port = QLineEdit()
         self.entry_port.setValidator(QIntValidator())
 
@@ -73,8 +64,6 @@ class MainWindow(QMainWindow):
         self.ydata = np.zeros_like(self.xdata)
         self.plot_item.plot(self.xdata, self.ydata)
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
-
-        self.log = QLogDisplay()
 
         # --- Widget placement ---
 
@@ -101,7 +90,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(param_box)
         layout.addWidget(control_box)
         layout.addWidget(self.plot_widget)
-        layout.addWidget(self.log)
 
         widget = QWidget()
         widget.setLayout(layout)
@@ -109,13 +97,22 @@ class MainWindow(QMainWindow):
 
     def start_test(self):
         if not (text := self.entry_duration.text()):
+            logging.debug("Missing test duration input")
+            dialog = QMessageBox(self)
+            dialog.setText(f"Please enter a test duration.")
+            dialog.exec()
             return
 
         duration = int(text)
         if not MIN_TEST_DURATION_SECONDS <= duration <= MAX_TEST_DURATION_SECONDS:
             logging.debug(
-                f"Duration '{self.entry_duration.text()}' is not within the range [{MIN_TEST_DURATION_SECONDS}, {MAX_TEST_DURATION_SECONDS}] seconds"
+                f"Duration '{duration}' is not within the range [{MIN_TEST_DURATION_SECONDS}, {MAX_TEST_DURATION_SECONDS}] seconds"
             )
+            dialog = QMessageBox(self)
+            dialog.setText(
+                f"Please enter a test duration between {MIN_TEST_DURATION_SECONDS} and {MAX_TEST_DURATION_SECONDS} seconds"
+            )
+            dialog.exec()
             return
 
         logging.info("Starting test!")
@@ -131,17 +128,42 @@ class MainWindow(QMainWindow):
         self.button_stop.setEnabled(False)
 
     def select_device(self):
+        """Slot for the select button"""
         address = self.entry_ip.text()
+        if not address:
+            logging.debug("Missing address input")
+            dialog = QMessageBox(self)
+            dialog.setText("Please enter a device IP address")
+            dialog.exec()
+            return
+
         if not self.is_valid_ipv4(address):
             logging.debug(f"Address '{address}' is not a valid IPv4 address!")
+            dialog = QMessageBox(self)
+            dialog.setText(
+                f"Please enter a valid IP address. Must be in the range from 0.0.0.0 to 255.255.255.255"
+            )
+            dialog.exec()
             return
 
         if not (text := self.entry_port.text()):
+            logging.debug("Missing port input")
+            dialog = QMessageBox(self)
+            dialog.setText(f"Please enter a device port number")
+            dialog.exec()
             return
 
         port = int(text)
         if not MIN_PORT_NUMBER <= port <= MAX_PORT_NUMBER:
-            logging.debug(f"Port '{port}' is not a valid port number!")
+            logging.debug(
+                f"Port '{port}' is not within the range [{MIN_PORT_NUMBER}, {MAX_PORT_NUMBER}]"
+            )
+            dialog = QMessageBox(self)
+            dialog.setText(
+                f"Please enter a valid port number. Must be between {MIN_PORT_NUMBER} and {MAX_PORT_NUMBER}"
+            )
+            dialog.exec()
+
             return
 
         logging.debug(f"Selected device on {address}:{port}")
