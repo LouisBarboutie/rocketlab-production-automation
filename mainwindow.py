@@ -40,11 +40,24 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
         self.available_devices: Dict[str, Device] = {}
+        self.selected_device: Device | None
 
         # --- Widget creation ---
 
-        self.selected_device = QComboBox()
-        self.selected_device.setDuplicatesEnabled(False)
+        self.device_dropdown = QComboBox()
+        self.device_dropdown.setDuplicatesEnabled(False)
+        self.device_placeholder = "--- select device ---"
+        self.device_dropdown.addItem(self.device_placeholder)
+        self.selected_device_model = QLineEdit()
+        self.selected_device_serial = QLineEdit()
+        self.selected_device_addr = QLineEdit()
+        self.selected_device_port = QLineEdit()
+        self.selected_device_model.setReadOnly(True)
+        self.selected_device_serial.setReadOnly(True)
+        self.selected_device_addr.setReadOnly(True)
+        self.selected_device_port.setReadOnly(True)
+
+        self.device_dropdown.activated.connect(self.show_device_info)
 
         self.button_discover = QPushButton("Discover")
         self.button_discover.clicked.connect(self.discover_devices)
@@ -91,11 +104,15 @@ class MainWindow(QMainWindow):
         # fmt:off
         selection_layout = QGridLayout()
         selection_layout.addWidget(QLabel("Selected device:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
-        selection_layout.addWidget(self.selected_device, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(self.device_dropdown, 0, 1, Qt.AlignmentFlag.AlignLeft)
         selection_layout.addWidget(QLabel("Model No:"), 1, 0)
         selection_layout.addWidget(QLabel("Serial No:"), 2, 0)
         selection_layout.addWidget(QLabel("IPv4 addr:"), 3, 0)
         selection_layout.addWidget(QLabel("Port No:"), 4, 0)
+        selection_layout.addWidget(self.selected_device_model, 1, 1, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(self.selected_device_serial, 2, 1, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(self.selected_device_addr, 3, 1, Qt.AlignmentFlag.AlignLeft)
+        selection_layout.addWidget(self.selected_device_port, 4, 1, Qt.AlignmentFlag.AlignLeft)
         # fmt: on
 
         selection_box = QGroupBox("Device selection")
@@ -125,8 +142,9 @@ class MainWindow(QMainWindow):
         self.available_devices[device.serial] = device
         entries = list(self.available_devices.keys())
         entries.sort()
-        self.selected_device.clear()
-        self.selected_device.addItems(entries)
+        self.device_dropdown.clear()
+        self.device_dropdown.addItem(self.device_placeholder)
+        self.device_dropdown.addItems(entries)
         logging.debug(f"Added device {device}")
 
     def start_test(self):
@@ -168,7 +186,6 @@ class MainWindow(QMainWindow):
         )
 
     def discover_devices(self) -> None:
-        self.available_devices.clear()
         """Slot for the select button"""
         address = self.entry_ip.text()
         if not address:
@@ -209,6 +226,24 @@ class MainWindow(QMainWindow):
 
         logging.debug(f"Requested device discovery on {address}:{port}")
         self.requested_discovery.emit(address, port, CommandId.ID)
+
+    @pyqtSlot()
+    def show_device_info(self):
+        if self.device_dropdown.currentText() == self.device_placeholder:
+            self.selected_device_model.clear()
+            self.selected_device_serial.clear()
+            self.selected_device_addr.clear()
+            self.selected_device_port.clear()
+            self.selected_device = None
+
+            return
+
+        device = self.available_devices[self.device_dropdown.currentText()]
+        self.selected_device_model.setText(device.model)
+        self.selected_device_serial.setText(device.serial)
+        self.selected_device_addr.setText(device.address)
+        self.selected_device_port.setText(str(device.port))
+        self.selected_device = device
 
     @staticmethod
     def is_valid_ipv4(address: str) -> bool:
