@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
 
         self.xdata: List[float] = []
         self.ydata: List[float] = []
+        self.window_size_seconds = 10
         self.curve = self.plot_item.plot(self.xdata, self.ydata)
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
@@ -151,9 +152,19 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int, float, float)
     def update_plot(self, time: int, milli_volts: float, milli_amps: float) -> None:
-        self.xdata.append(time)
+        self.xdata.append(time / 1000)
         self.ydata.append(milli_volts)
         self.curve.setData(self.xdata, self.ydata)
+
+        upper = self.xdata[-1]
+        lower = upper - self.window_size_seconds
+
+        if upper < self.window_size_seconds:
+            upper = self.window_size_seconds
+        if lower < 0:
+            lower = 0
+
+        self.plot_widget.setXRange(lower, upper)
 
     @pyqtSlot()
     def start_test(self) -> None:
