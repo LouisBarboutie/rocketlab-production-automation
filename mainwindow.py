@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QComboBox,
+    QTabWidget,
 )
 from pyqtgraph import PlotWidget, PlotItem
 
@@ -90,6 +91,15 @@ class MainWindow(QMainWindow):
         self.curve_amps = self.plot_item.plot()
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
+        self.plot_tabs = QTabWidget()
+        self.plot_tabs.addTab(QWidget(), "The page")
+        page = QWidget()
+        layout = QHBoxLayout()
+        layout.addWidget(QLabel("Boo"))
+        page.setLayout(layout)
+        self.plot_tabs.addTab(page, "The cooler page")
+        self.plot_tabs.addTab(self.plot_widget, "plot")
+
         # --- Widget placement ---
 
         # fmt:off
@@ -136,7 +146,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(discovery_box, 0, 0)
         layout.addWidget(selection_box, 1, 0)
         layout.addWidget(control_box, 2, 0)
-        layout.addWidget(self.plot_widget, 0, 1, -1, -1)
+        layout.addWidget(self.plot_tabs, 0, 1, -1, 1)
 
         widget = QWidget()
         widget.setLayout(layout)
