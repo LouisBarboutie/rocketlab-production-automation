@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (
 from pyqtgraph import PlotWidget, PlotItem
 
 from codec import CommandId, Command
+from control import ControlBox
 from device import Device
 from discovery import DiscoveryBox
 
@@ -58,15 +59,7 @@ class MainWindow(QMainWindow):
         self.device_dropdown.activated.connect(self.show_device_info)
 
         self.discovery_box = DiscoveryBox()
-
-        self.entry_duration = QLineEdit()
-        self.entry_duration.setValidator(QIntValidator())
-        self.entry_duration.setText("10")
-
-        self.button_start = QPushButton("Start")
-        self.button_stop = QPushButton("Stop")
-        self.button_start.clicked.connect(self.start_test)
-        self.button_stop.clicked.connect(self.stop_test)
+        self.control_box = ControlBox()
 
         self.plot_item = PlotItem(title="Test Plot")
         self.plot_item.setLabel("bottom", "time [s]")
@@ -89,6 +82,12 @@ class MainWindow(QMainWindow):
         self.plot_tabs.addTab(page, "The cooler page")
         self.plot_tabs.addTab(self.plot_widget, "plot")
 
+        # --- Widget connections ---
+
+        self.control_box.started_test.connect(self.start_test)
+        self.control_box.stopped_test.connect(self.stop_test)
+        self.stopped_test.connect(self.control_box.end_test)
+
         # --- Widget placement ---
 
         # fmt:off
@@ -108,21 +107,10 @@ class MainWindow(QMainWindow):
         selection_box = QGroupBox("Device selection")
         selection_box.setLayout(selection_layout)
 
-        control_layout = QGridLayout()
-        control_layout.addWidget(
-            QLabel("Test duration:"), 0, 0, Qt.AlignmentFlag.AlignLeft
-        )
-        control_layout.addWidget(self.entry_duration, 0, 1, Qt.AlignmentFlag.AlignLeft)
-        control_layout.addWidget(self.button_start, 1, 0, 1, 2)
-        control_layout.addWidget(self.button_stop, 2, 0, 1, 2)
-
-        control_box = QGroupBox("Test control")
-        control_box.setLayout(control_layout)
-
         layout = QGridLayout()
         layout.addWidget(self.discovery_box, 0, 0)
         layout.addWidget(selection_box, 1, 0)
-        layout.addWidget(control_box, 2, 0)
+        layout.addWidget(self.control_box, 2, 0)
         layout.addWidget(self.plot_tabs, 0, 1, -1, 1)
 
         widget = QWidget()
@@ -158,27 +146,8 @@ class MainWindow(QMainWindow):
 
         self.plot_widget.setXRange(lower, upper)
 
-    @pyqtSlot()
-    def start_test(self) -> None:
-        if not (text := self.entry_duration.text()):
-            logging.debug("Missing test duration input")
-            dialog = QMessageBox(self)
-            dialog.setText(f"Please enter a test duration.")
-            dialog.exec()
-            return
-
-        duration = int(text)
-        if not MIN_TEST_DURATION_SECONDS <= duration <= MAX_TEST_DURATION_SECONDS:
-            logging.debug(
-                f"Duration '{duration}' is not within the range [{MIN_TEST_DURATION_SECONDS}, {MAX_TEST_DURATION_SECONDS}] seconds"
-            )
-            dialog = QMessageBox(self)
-            dialog.setText(
-                f"Please enter a test duration between {MIN_TEST_DURATION_SECONDS} and {MAX_TEST_DURATION_SECONDS} seconds"
-            )
-            dialog.exec()
-            return
-
+    @pyqtSlot(int)
+    def start_test(self, duration: int) -> None:
         if self.selected_device is None:
             logging.debug("No device selected")
             dialog = QMessageBox(self)
@@ -198,8 +167,6 @@ class MainWindow(QMainWindow):
 
         logging.info("Starting test!")
 
-        self.button_start.setEnabled(False)
-        self.button_stop.setEnabled(True)
         self.device_dropdown.setEnabled(False)
 
         command = Command(CommandId.TEST_START)
@@ -210,12 +177,6 @@ class MainWindow(QMainWindow):
     def stop_test(self) -> None:
         logging.info("Stopping test!")
         self.stopped_test.emit(self.selected_device, Command(CommandId.TEST_STOP))
-        self.end_test()
-
-    @pyqtSlot()
-    def end_test(self) -> None:
-        self.button_start.setEnabled(True)
-        self.button_stop.setEnabled(False)
         self.device_dropdown.setEnabled(True)
 
     @pyqtSlot()

@@ -48,7 +48,7 @@ window.discovery_box.requested_discovery.connect(server.command)
 
 server.discovered_device.connect(window.add_device)
 server.received_measurement.connect(window.update_plot)
-server.finished_measurement.connect(window.end_test)
+server.finished_measurement.connect(window.stop_test)
 
 window.show()
 sys.exit(app.exec())
