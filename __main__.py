@@ -51,12 +51,12 @@ app = QApplication(sys.argv)
 server = Server()
 window = MainWindow()
 
-window.plot_tabs.relayed_command.connect(server.command)
+window.test_manager.relayed_command.connect(server.command)
 window.discovery_box.requested_discovery.connect(server.command)
 
 server.discovered_device.connect(window.selection_box.add_device)
-server.received_measurement.connect(window.plot_tabs.relay_measurement)
-server.finished_measurement.connect(window.plot_tabs.end_test)
+server.received_measurement.connect(window.test_manager.relay_measurement)
+server.finished_measurement.connect(window.test_manager.end_test)
 
 window.show()
 sys.exit(app.exec())

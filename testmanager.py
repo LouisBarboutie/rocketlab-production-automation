@@ -10,7 +10,7 @@ from measurement import Measurement
 from testpage import TestPage
 
 
-class PlotTabs(QTabWidget):
+class TestManager(QTabWidget):
 
     tab_closed = pyqtSignal(Device)
     relayed_command = pyqtSignal(Device, Command)

@@ -1,6 +1,6 @@
 import logging
 
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import (
     QGroupBox,
@@ -35,10 +35,10 @@ class ControlBox(QGroupBox):
         self.button_stop.clicked.connect(self.stop_test)
 
         layout = QHBoxLayout()
-        layout.addWidget(QLabel("Test duration:"))
-        layout.addWidget(self.entry_duration)
-        layout.addWidget(self.button_start)
-        layout.addWidget(self.button_stop)
+        layout.addWidget(QLabel("Test duration:"), 1)
+        layout.addWidget(self.entry_duration, 1)
+        layout.addWidget(self.button_start, 1)
+        layout.addWidget(self.button_stop, 1)
 
         self.setLayout(layout)
 
