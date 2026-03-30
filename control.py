@@ -78,5 +78,6 @@ class ControlBox(QGroupBox):
 
     @pyqtSlot()
     def end_test(self) -> None:
+        logging.debug("Setting button states")
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
