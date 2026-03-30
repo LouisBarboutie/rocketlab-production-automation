@@ -1,5 +1,7 @@
 import argparse
+import datetime
 import logging
+import subprocess
 import sys
 
 from PyQt5.QtWidgets import QApplication
@@ -36,6 +38,13 @@ handler.setFormatter(
 level = logging.DEBUG if args.debug else logging.INFO
 
 logging.basicConfig(level=level, handlers=[handler])
+try:
+    version = subprocess.check_output(["git", "describe"], stderr=subprocess.DEVNULL)
+except subprocess.CalledProcessError:
+    version = subprocess.check_output(["git", "describe", "--always"])
+
+logging.info(datetime.datetime.now().strftime(r"%a %d %B %Y"))
+logging.info(f"Git revision {version.decode().strip()}")
 
 app = QApplication(sys.argv)
 
