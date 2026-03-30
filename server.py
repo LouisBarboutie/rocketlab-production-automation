@@ -27,6 +27,7 @@ class Server(QObject):
     discovered_device = pyqtSignal(Device)
     received_measurement = pyqtSignal(int, float, float)
     finished_measurement = pyqtSignal()
+    detected_packet_loss = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -101,6 +102,7 @@ class Server(QObject):
                             logging.warning(
                                 f"Packet loss detected for timestamp {expected_time}"
                             )
+                            self.detected_packet_loss.emit()
                         last_packet_time = response.payload["t"]
 
                         self.received_measurement.emit(
