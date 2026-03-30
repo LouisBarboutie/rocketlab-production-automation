@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import (
     QGroupBox,
-    QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -34,11 +34,11 @@ class ControlBox(QGroupBox):
         self.button_start.clicked.connect(self.start_test)
         self.button_stop.clicked.connect(self.stop_test)
 
-        layout = QGridLayout()
-        layout.addWidget(QLabel("Test duration:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.entry_duration, 0, 1, Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.button_start, 1, 0, 1, 2)
-        layout.addWidget(self.button_stop, 2, 0, 1, 2)
+        layout = QHBoxLayout()
+        layout.addWidget(QLabel("Test duration:"))
+        layout.addWidget(self.entry_duration)
+        layout.addWidget(self.button_start)
+        layout.addWidget(self.button_stop)
 
         self.setLayout(layout)
 

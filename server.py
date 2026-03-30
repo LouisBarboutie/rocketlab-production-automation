@@ -28,8 +28,8 @@ MIN_TIMEOUT_SECONDS = 5
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
     received_measurement = pyqtSignal(Device, Measurement)
-    finished_measurement = pyqtSignal()
-    detected_packet_loss = pyqtSignal()
+    finished_measurement = pyqtSignal(Device)
+    detected_packet_loss = pyqtSignal(Device)
 
     def __init__(self) -> None:
         super().__init__()
@@ -100,7 +100,9 @@ class Server(QObject):
                             logging.warning(
                                 f"Packet loss detected for timestamp {expected_time}"
                             )
-                            self.detected_packet_loss.emit()
+                            self.detected_packet_loss.emit(
+                                self.discovered_devices[device_address]
+                            )
                         last_packet_time = response.payload["t"]
 
                         self.received_measurement.emit(
@@ -114,7 +116,9 @@ class Server(QObject):
                         continue
 
                     if response.id == ResponseId.STATUS_STATE:
-                        self.finished_measurement.emit()
+                        self.finished_measurement.emit(
+                            self.discovered_devices[device_address]
+                        )
                         return
                 case CommandId.ID:
                     device = Device(
