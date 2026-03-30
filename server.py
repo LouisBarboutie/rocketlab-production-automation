@@ -3,6 +3,7 @@ import select
 import socket
 import struct
 import threading
+from typing import Dict, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal
 
@@ -26,13 +27,14 @@ MIN_TIMEOUT_SECONDS = 5
 
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
-    received_measurement = pyqtSignal(Measurement)
+    received_measurement = pyqtSignal(Device, Measurement)
     finished_measurement = pyqtSignal()
     detected_packet_loss = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
         self.codec = Codec()
+        self.discovered_devices: Dict[Tuple[str, int], Device] = {}
 
     @pyqtSlot(Device, Command)
     def command(self, device: Device, command: Command):
@@ -102,11 +104,12 @@ class Server(QObject):
                         last_packet_time = response.payload["t"]
 
                         self.received_measurement.emit(
+                            self.discovered_devices[device_address],
                             Measurement(
                                 response.payload["t"],
                                 response.payload["mv"],
                                 response.payload["ma"],
-                            )
+                            ),
                         )
                         continue
 
@@ -119,6 +122,7 @@ class Server(QObject):
                         response.payload["serial"],
                         *device_address,
                     )
+                    self.discovered_devices[device_address] = device
                     self.discovered_device.emit(device)
                 case _:
                     logging.error(f"Command '{command}' not recognised!")

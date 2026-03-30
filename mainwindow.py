@@ -17,6 +17,7 @@ from codec import CommandId, Command
 from control import ControlBox
 from device import Device
 from discovery import DiscoveryBox
+from measurement import Measurement
 from plot import PlotTabs
 from selection import SelectionBox
 
@@ -47,9 +48,9 @@ class MainWindow(QMainWindow):
 
         self.control_box.started_test.connect(self.start_test)
         self.control_box.stopped_test.connect(self.interrupt_test)
-        self.started_test.connect(self.plot_tabs.clear)
-        self.started_test.connect(self.plot_tabs.add_test)
+        self.started_test.connect(self.plot_tabs.clear_plot)
         self.stopped_test.connect(self.control_box.end_test)
+        self.plot_tabs.tab_closed.connect(self.interrupt_test)
 
         # --- Widget placement ---
 
