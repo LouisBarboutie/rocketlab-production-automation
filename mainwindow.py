@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
         self.started_test.connect(self.plot_tabs.clear_plot)
         self.stopped_test.connect(self.control_box.end_test)
         self.plot_tabs.tab_closed.connect(self.interrupt_test)
+        self.selection_box.confirmed_device.connect(self.plot_tabs.add_test)
 
         # --- Widget placement ---
 

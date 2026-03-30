@@ -1,13 +1,22 @@
 import logging
 from typing import Dict
 
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import QGroupBox, QComboBox, QLineEdit, QLabel, QGridLayout
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import (
+    QGroupBox,
+    QComboBox,
+    QLineEdit,
+    QLabel,
+    QGridLayout,
+    QPushButton,
+)
 
 from device import Device
 
 
 class SelectionBox(QGroupBox):
+
+    confirmed_device = pyqtSignal(Device)
 
     device_placeholder = "--- select device ---"
     available_devices: Dict[str, Device] = {}
@@ -29,8 +38,10 @@ class SelectionBox(QGroupBox):
         self.info_serial.setReadOnly(True)
         self.info_addr.setReadOnly(True)
         self.info_port.setReadOnly(True)
+        self.add_test_button = QPushButton("Add test")
 
         self.device_dropdown.activated.connect(self.show_device_info)
+        self.add_test_button.clicked.connect(self.confirm_device)
 
         layout = QGridLayout()
         layout.addWidget(QLabel("Selected device:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
@@ -43,6 +54,7 @@ class SelectionBox(QGroupBox):
         layout.addWidget(self.info_serial, 2, 1, Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.info_addr, 3, 1, Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.info_port, 4, 1, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.add_test_button, 5, 0, 1, 2)
 
         self.setLayout(layout)
 
@@ -73,3 +85,9 @@ class SelectionBox(QGroupBox):
         self.info_addr.setText(device.address)
         self.info_port.setText(str(device.port))
         self.selected_device = device
+
+    @pyqtSlot()
+    def confirm_device(self) -> None:
+        if self.device_dropdown.currentText() == self.device_placeholder:
+            return
+        self.confirmed_device.emit(self.selected_device)

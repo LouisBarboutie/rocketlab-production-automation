@@ -25,6 +25,7 @@ class PlotTabs(QTabWidget):
 
         self.plot_widgets: Dict[str, Tuple[PlotWidget, PlotWidget]] = {}
 
+    @pyqtSlot(Device)
     def add_test(self, device: Device) -> bool:
         if device.serial in self.plot_widgets:
             logging.debug(f"Test already added for device {device}")
