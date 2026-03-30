@@ -1,9 +1,12 @@
 import logging
-from typing import List
+from typing import List, Dict
 
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QTabWidget, QWidget, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import QTabWidget, QWidget, QHBoxLayout, QMessageBox
 from pyqtgraph import PlotItem, PlotWidget
+
+from device import Device
+from measurement import Measurement
 
 
 class PlotTabs(QTabWidget):
@@ -22,19 +25,29 @@ class PlotTabs(QTabWidget):
         self.curve_amps = self.plot_item.plot()
         self.plot_widget = PlotWidget(plotItem=self.plot_item)
 
-        self.addTab(QWidget(), "The page")
+        self.test_index: Dict[str, int] = {}
+
+    def add_test(self, device: Device) -> bool:
+        if device.serial in self.test_index:
+            return False
+
+        plot_item = PlotItem(
+            title=f"Test for model no. {device.model}, serial no. {device.serial} "
+        )
+        plot = PlotWidget(plotItem=plot_item)
         page = QWidget()
         layout = QHBoxLayout()
-        layout.addWidget(QLabel("Boo"))
+        layout.addWidget(plot)
         page.setLayout(layout)
-        self.addTab(page, "The cooler page")
-        self.addTab(self.plot_widget, "plot")
+        self.test_index[device.serial] = self.addTab(page, device.serial)
 
-    @pyqtSlot(int, float, float)
-    def update_plot(self, time: int, milli_volts: float, milli_amps: float) -> None:
-        self.time.append(time / 1000)
-        self.milli_volts.append(milli_volts)
-        self.milli_amps.append(milli_amps)
+        return True
+
+    @pyqtSlot(Measurement)
+    def update_plot(self, measurement: Measurement) -> None:
+        self.time.append(measurement.time / 1000)
+        self.milli_volts.append(measurement.milli_volts)
+        self.milli_amps.append(measurement.milli_amps)
 
         self.curve_volts.setData(self.time, self.milli_volts)
         self.curve_amps.setData(self.time, self.milli_amps)

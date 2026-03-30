@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
         self.control_box.started_test.connect(self.start_test)
         self.control_box.stopped_test.connect(self.interrupt_test)
         self.started_test.connect(self.plot_tabs.clear)
+        self.started_test.connect(self.plot_tabs.add_test)
         self.stopped_test.connect(self.control_box.end_test)
 
         # --- Widget placement ---
@@ -73,12 +74,29 @@ class MainWindow(QMainWindow):
 
         logging.info("Starting test!")
 
+        device = self.selection_box.selected_device
+        if not self.plot_tabs.add_test(device):
+            logging.debug(f"Test already running for {device}")
+            dialog = QMessageBox(self)
+            dialog.setText(
+                f"Device {device.model}/{device.serial} is already being tested"
+            )
+            dialog.exec()
+            return
+
         command = Command(CommandId.TEST_START)
         command.params["duration"] = duration
-        self.started_test.emit(self.selection_box.selected_device, command)
+        self.started_test.emit(device, command)
 
     @pyqtSlot()
     def interrupt_test(self):
+        if self.selection_box.selected_device is None:
+            logging.debug("No device selected")
+            dialog = QMessageBox(self)
+            dialog.setText("Please select a device")
+            dialog.exec()
+            return
+
         logging.info("Interrupting test!")
         self.stopped_test.emit(
             self.selection_box.selected_device, Command(CommandId.TEST_STOP)

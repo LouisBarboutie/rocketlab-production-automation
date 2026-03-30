@@ -17,6 +17,7 @@ from codec import (
     DEFAULT_RATE_MILLISECONDS,
 )
 from device import Device
+from measurement import Measurement
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115
@@ -25,7 +26,7 @@ MIN_TIMEOUT_SECONDS = 5
 
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
-    received_measurement = pyqtSignal(int, float, float)
+    received_measurement = pyqtSignal(Measurement)
     finished_measurement = pyqtSignal()
     detected_packet_loss = pyqtSignal()
 
@@ -42,12 +43,7 @@ class Server(QObject):
         )
         thread.start()
 
-    def do_transaction(
-        self,
-        address: str,
-        port: int,
-        command: Command,
-    ):
+    def do_transaction(self, address: str, port: int, command: Command):
         logging.debug(f"Starting transaction for command {command.id.name}")
 
         try:
@@ -106,9 +102,11 @@ class Server(QObject):
                         last_packet_time = response.payload["t"]
 
                         self.received_measurement.emit(
-                            response.payload["t"],
-                            response.payload["mv"],
-                            response.payload["ma"],
+                            Measurement(
+                                response.payload["t"],
+                                response.payload["mv"],
+                                response.payload["ma"],
+                            )
                         )
                         continue
 
