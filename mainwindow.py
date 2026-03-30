@@ -1,9 +1,7 @@
 import logging
-import ipaddress
 from typing import Dict, List
 
 from PyQt5.QtGui import QIntValidator
-import numpy as np
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
     QHBoxLayout,
@@ -12,7 +10,6 @@ from PyQt5.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QVBoxLayout,
     QWidget,
     QGridLayout,
     QGroupBox,
@@ -23,6 +20,7 @@ from pyqtgraph import PlotWidget, PlotItem
 
 from codec import CommandId, Command
 from device import Device
+from discovery import DiscoveryBox
 
 MIN_PORT_NUMBER = 0
 MAX_PORT_NUMBER = 65535
@@ -35,7 +33,6 @@ class MainWindow(QMainWindow):
 
     started_test = pyqtSignal(Device, Command)
     stopped_test = pyqtSignal(Device, Command)
-    requested_discovery = pyqtSignal(Device, Command)
 
     def __init__(self) -> None:
         super().__init__()
@@ -60,15 +57,7 @@ class MainWindow(QMainWindow):
 
         self.device_dropdown.activated.connect(self.show_device_info)
 
-        self.button_discover = QPushButton("Discover")
-        self.button_discover.clicked.connect(self.discover_devices)
-
-        self.entry_ip = QLineEdit()
-        self.entry_ip.setText("224.3.11.15")
-
-        self.entry_port = QLineEdit()
-        self.entry_port.setValidator(QIntValidator())
-        self.entry_port.setText("31115")
+        self.discovery_box = DiscoveryBox()
 
         self.entry_duration = QLineEdit()
         self.entry_duration.setValidator(QIntValidator())
@@ -103,18 +92,6 @@ class MainWindow(QMainWindow):
         # --- Widget placement ---
 
         # fmt:off
-        discovery_layout = QGridLayout()
-        discovery_layout.addWidget(QLabel("IPv4 address:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
-        discovery_layout.addWidget(QLabel("Port number:"), 1, 0, Qt.AlignmentFlag.AlignLeft)
-        discovery_layout.addWidget(self.entry_ip, 0, 1, Qt.AlignmentFlag.AlignLeft)
-        discovery_layout.addWidget(self.entry_port, 1, 1, Qt.AlignmentFlag.AlignLeft)
-        discovery_layout.addWidget(self.button_discover, 3, 0, 1, 2, Qt.AlignmentFlag.AlignCenter)
-        # fmt: on
-
-        discovery_box = QGroupBox("Device discovery")
-        discovery_box.setLayout(discovery_layout)
-
-        # fmt:off
         selection_layout = QGridLayout()
         selection_layout.addWidget(QLabel("Selected device:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
         selection_layout.addWidget(self.device_dropdown, 0, 1, Qt.AlignmentFlag.AlignLeft)
@@ -143,7 +120,7 @@ class MainWindow(QMainWindow):
         control_box.setLayout(control_layout)
 
         layout = QGridLayout()
-        layout.addWidget(discovery_box, 0, 0)
+        layout.addWidget(self.discovery_box, 0, 0)
         layout.addWidget(selection_box, 1, 0)
         layout.addWidget(control_box, 2, 0)
         layout.addWidget(self.plot_tabs, 0, 1, -1, 1)
@@ -242,52 +219,6 @@ class MainWindow(QMainWindow):
         self.device_dropdown.setEnabled(True)
 
     @pyqtSlot()
-    def discover_devices(self) -> None:
-        """Slot for the select button"""
-        address = self.entry_ip.text()
-        if not address:
-            logging.debug("Missing address input")
-            dialog = QMessageBox(self)
-            dialog.setText("Please enter a device IP address")
-            dialog.exec()
-            return
-
-        if not self.is_valid_ipv4(address):
-            logging.debug(f"Address '{address}' is not a valid IPv4 address!")
-            dialog = QMessageBox(self)
-            dialog.setText(
-                f"Please enter a valid IP address. Must be in the range from 0.0.0.0 to 255.255.255.255"
-            )
-            dialog.exec()
-            return
-
-        if not (text := self.entry_port.text()):
-            logging.debug("Missing port input")
-            dialog = QMessageBox(self)
-            dialog.setText(f"Please enter a device port number")
-            dialog.exec()
-            return
-
-        port = int(text)
-        if not MIN_PORT_NUMBER <= port <= MAX_PORT_NUMBER:
-            logging.debug(
-                f"Port '{port}' is not within the range [{MIN_PORT_NUMBER}, {MAX_PORT_NUMBER}]"
-            )
-            dialog = QMessageBox(self)
-            dialog.setText(
-                f"Please enter a valid port number. Must be between {MIN_PORT_NUMBER} and {MAX_PORT_NUMBER}"
-            )
-            dialog.exec()
-
-            return
-
-        logging.debug(f"Requested device discovery on {address}:{port}")
-        device = Device(
-            "", "", address, port
-        )  # even in multicast we treat the destination as a device
-        self.requested_discovery.emit(device, Command(CommandId.ID))
-
-    @pyqtSlot()
     def show_device_info(self) -> None:
         if self.device_dropdown.currentText() == self.device_placeholder:
             self.selected_device_model.clear()
@@ -304,24 +235,3 @@ class MainWindow(QMainWindow):
         self.selected_device_addr.setText(device.address)
         self.selected_device_port.setText(str(device.port))
         self.selected_device = device
-
-    @staticmethod
-    def is_valid_ipv4(address: str) -> bool:
-        """Checks whether the address is a valid IPv4 address.
-
-        This check is done here and not through a QValidator, as
-        the logic turns out to be quite complex. It is simpler
-        to validate input on the button press rather than while
-        the user gives input. QValidator side effects prevent
-        changes once the first input was validated.
-        """
-        parts = address.split(".")
-        if len(parts) != 4:
-            return False
-        try:
-            ip = ipaddress.IPv4Address(address)
-            logging.debug(f"{ip=}")
-        except ValueError:
-            return False
-
-        return True

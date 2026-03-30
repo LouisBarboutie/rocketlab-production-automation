@@ -44,7 +44,7 @@ window = MainWindow()
 
 window.started_test.connect(server.command)
 window.stopped_test.connect(server.command)
-window.requested_discovery.connect(server.command)
+window.discovery_box.requested_discovery.connect(server.command)
 
 server.discovered_device.connect(window.add_device)
 server.received_measurement.connect(window.update_plot)
