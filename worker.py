@@ -1,11 +1,12 @@
 import logging
 
-from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtNetwork import QHostAddress, QUdpSocket
 
 from codec import Command, Codec, ResponseId, CommandId
 from device import Device
 from measurement import Measurement
+from testpage import DEFAULT_RATE_MILLISECONDS
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115
@@ -27,7 +28,7 @@ class Worker(QObject):
 
         self.codec = Codec()
         self.socket: QUdpSocket
-        self.timer: QTimer
+        self.last_packet_time: int = 0
 
     @pyqtSlot()
     def work(self) -> None:
@@ -40,9 +41,10 @@ class Worker(QObject):
         self.send_command(Command(CommandId.TEST_STOP))
 
         self.socket.readyRead.disconnect(self.process_response)
-        self.timer.timeout.disconnect(self.interrupt)
         self.socket.close()
         self.socket.deleteLater()
+
+        self.finished.emit(self.device)
 
     @pyqtSlot()
     def process_response(self) -> None:
@@ -65,6 +67,14 @@ class Worker(QObject):
                     self.finished.emit(self.device)
                 case ResponseId.STATUS_MEASURE:
                     # TODO check packet loss
+                    expected_time = self.last_packet_time + DEFAULT_RATE_MILLISECONDS
+                    if response.payload["t"] != expected_time:
+                        logging.warning(
+                            f"Packet loss detected for timestamp {expected_time}"
+                        )
+                        self.detected_packet_loss.emit(self.device)
+                    self.last_packet_time = response.payload["t"]
+
                     self.received_measurement.emit(
                         self.device,
                         Measurement(
@@ -73,8 +83,7 @@ class Worker(QObject):
                             response.payload["ma"],
                         ),
                     )
-                    self.timer.start()
-                case ResponseId.STATUS_STATE:
+                case ResponseId.STATUS_STATE | ResponseId.TEST_STOP:
                     self.finished.emit(self.device)
                 case ResponseId.ERROR | ResponseId.TEST_ERR:
                     self.error.emit(self.device)
@@ -82,15 +91,13 @@ class Worker(QObject):
                     pass
                 case _:
                     logging.warning(f"Unkown response id: {response.id}")
+                    self.error.emit(self.device)
 
     def create_socket(self) -> None:
         """
         Creates the socket from within the thread the worker is currently in.
         If not created and connected in the same thread, signal and slots won't work.
         """
-        self.timer = QTimer()
-        self.timer.setInterval(MIN_TIMEOUT_MILLI_SECONDS)
-        self.timer.timeout.connect(self.interrupt)
 
         self.socket = QUdpSocket()
         self.socket.bind(QHostAddress.SpecialAddress.AnyIPv4)
@@ -105,4 +112,3 @@ class Worker(QObject):
         encoded = self.codec.encode(command)
         logging.debug(f"Sending command to {self.device}")
         self.socket.writeDatagram(encoded, self.device.address, self.device.port)
-        self.timer.start()
