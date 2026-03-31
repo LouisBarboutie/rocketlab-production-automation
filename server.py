@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Dict, Set
 
-from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QMetaObject, QObject, QThread, pyqtSignal, pyqtSlot, Qt
 
 from codec import Command, CommandId
 from device import Device
@@ -67,9 +67,9 @@ class Server(QObject):
 
         for task in to_stop:
             if task.device == device:
-                self.workers[task].interrupt()
-                self.threads[task].quit()
-                self.threads[task].wait()
+                QMetaObject.invokeMethod(
+                    self.workers[task], "interrupt", Qt.ConnectionType.QueuedConnection
+                )
 
     @pyqtSlot(Task)
     def cleanup(self, task: Task) -> None:
@@ -80,5 +80,6 @@ class Server(QObject):
 
     def shutdown(self) -> None:
         logging.debug(f"Shutting down workers")
-        for worker in self.workers.values():
-            worker.interrupt()
+        tasks = self.tasks.copy()
+        for task in tasks:
+            self.interrupt(task.device)
