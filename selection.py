@@ -82,7 +82,7 @@ class SelectionBox(QGroupBox):
         device = self.available_devices[self.device_dropdown.currentText()]
         self.info_model.setText(device.model)
         self.info_serial.setText(device.serial)
-        self.info_addr.setText(device.address)
+        self.info_addr.setText(device.address.toString())
         self.info_port.setText(str(device.port))
         self.selected_device = device
 

@@ -3,6 +3,7 @@ import logging
 
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIntValidator
+from PyQt5.QtNetwork import QHostAddress
 from PyQt5.QtWidgets import (
     QGroupBox,
     QLineEdit,
@@ -91,7 +92,7 @@ class DiscoveryBox(QGroupBox):
         logging.debug(f"Requested device discovery on {address}:{port}")
 
         # even in multicast we treat the destination as a device, although serial and model number are meaningless
-        device = Device("", "", address, port)
+        device = Device("", "", QHostAddress(address), port)
         self.requested_discovery.emit(device, Command(CommandId.ID))
 
     @staticmethod
