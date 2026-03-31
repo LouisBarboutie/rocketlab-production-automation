@@ -4,7 +4,7 @@ from typing import Dict
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QTabWidget
 
-from codec import Command
+from codec import Command, CommandId
 from device import Device
 from measurement import Measurement
 from testpage import TestPage
@@ -12,7 +12,7 @@ from testpage import TestPage
 
 class TestManager(QTabWidget):
 
-    tab_closed = pyqtSignal(Device)
+    tab_closed = pyqtSignal(Device, Command)
     relayed_command = pyqtSignal(Device, Command)
 
     def __init__(self) -> None:
@@ -44,6 +44,10 @@ class TestManager(QTabWidget):
             if device.serial == serial:
                 self.tests.pop(device)
                 break
+        else:
+            # This case shouldn't be possible
+            logging.error(f"Couldn't find test for device with serial no {serial}")
+            return
 
         page = self.widget(index)
         page.started_test.disconnect()
@@ -51,7 +55,7 @@ class TestManager(QTabWidget):
 
         logging.debug(f"Closing tab {serial}")
         self.removeTab(index)
-        self.tab_closed.emit(device)
+        self.tab_closed.emit(device, Command(CommandId.TEST_STOP))
 
     @pyqtSlot(Device, Command)
     def relay_command(self, device: Device, command: Command) -> None:

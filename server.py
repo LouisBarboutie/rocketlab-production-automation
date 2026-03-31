@@ -35,6 +35,7 @@ class Server(QObject):
         super().__init__()
         self.codec = Codec()
         self.discovered_devices: Dict[Tuple[str, int], Device] = {}
+        self.active_threads: Dict[Device, threading.Thread] = {}
 
     @pyqtSlot(Device, Command)
     def command(self, device: Device, command: Command):
@@ -43,6 +44,7 @@ class Server(QObject):
             args=[device.address, device.port, command],
             daemon=True,
         )
+        self.active_threads[device] = thread
         thread.start()
 
     def do_transaction(self, address: str, port: int, command: Command):
@@ -132,3 +134,12 @@ class Server(QObject):
                     logging.error(f"Command '{command}' not recognised!")
 
         logging.debug(f"Completed transaction for command {command.id.name}")
+
+    def shutdown(self) -> None:
+        logging.info("Shutting down server")
+        for device in self.discovered_devices.values():
+            self.command(device, Command(CommandId.TEST_STOP))
+
+        for device, thread in self.active_threads.items():
+            logging.debug(f"Shutting down thread for device {device}")
+            thread.join()
