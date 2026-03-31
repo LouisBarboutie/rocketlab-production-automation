@@ -22,9 +22,15 @@ To add it, run
 
 The application provides a test control GUI:
 
-[Application Preview](preview.png)
+![Application Preview](preview.png)
 
 Before running a test, an arbitray number of devices must be active and discoverable. One way to achieve this is to execute the provided device simulation from multiple processes (eg. multiple terminals).
+
+Start the application from the root folder with the command 
+
+    $ python . 
+
+For more verbose logs, the debug flag `-d` can also be specified.
 
 To run a test, follow this procedure:
 
