@@ -14,6 +14,7 @@ class TestManager(QTabWidget):
 
     tab_closed = pyqtSignal(Device, Command)
     relayed_command = pyqtSignal(Device, Command)
+    interrupt = pyqtSignal(Device)
 
     def __init__(self) -> None:
         super().__init__()
@@ -28,8 +29,8 @@ class TestManager(QTabWidget):
             return
 
         page = TestPage(device)
-        page.started_test.connect(self.relay_command)
-        page.stopped_test.connect(self.relay_command)
+        page.started_test.connect(self.start_test)
+        page.stopped_test.connect(self.stop_test)
         self.tests[device] = page
 
         index = self.addTab(page, device.serial)
@@ -55,7 +56,7 @@ class TestManager(QTabWidget):
 
         logging.debug(f"Closing tab {serial}")
         self.removeTab(index)
-        self.tab_closed.emit(device, Command(CommandId.TEST_STOP))
+        self.interrupt.emit(device)
 
     @pyqtSlot(Device, Command)
     def relay_command(self, device: Device, command: Command) -> None:
@@ -73,6 +74,17 @@ class TestManager(QTabWidget):
         logging.debug(f"Relaying measurement for device {device}: {measurement}")
         self.tests[device].update_plots(measurement)
 
+    @pyqtSlot(Device, int, int)
+    def start_test(self, device: Device, duration: int, rate: int):
+        command = Command(CommandId.TEST_START)
+        command.params["duration"] = duration
+        command.params["rate"] = rate
+        self.relayed_command.emit(device, command)
+
+    @pyqtSlot(Device)
+    def stop_test(self, device: Device):
+        self.interrupt.emit(device)
+
     @pyqtSlot(Device)
     def end_test(self, device: Device) -> None:
         if device not in self.tests:
@@ -83,3 +95,14 @@ class TestManager(QTabWidget):
 
         logging.debug(f"Ending test for device {device}")
         self.tests[device].end_test()
+
+    @pyqtSlot(Device)
+    def add_lost_packet(self, device: Device):
+        if device not in self.tests:
+            logging.warning(
+                f"Received lost packet notification from {device} with no associated test"
+            )
+            return
+
+        logging.warning(f"Lost packet for {device}")
+        self.tests[device].add_lost_packet()

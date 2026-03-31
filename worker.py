@@ -6,7 +6,6 @@ from PyQt5.QtNetwork import QHostAddress, QUdpSocket
 from codec import Command, Codec, ResponseId, CommandId
 from device import Device
 from measurement import Measurement
-from testpage import DEFAULT_RATE_MILLISECONDS
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115
@@ -16,7 +15,7 @@ MIN_TIMEOUT_MILLI_SECONDS = 5000
 class Worker(QObject):
     discovered_device = pyqtSignal(Device)
     received_measurement = pyqtSignal(Device, Measurement)
-    finished = pyqtSignal(Device)
+    finished = pyqtSignal(Device, Command)
     detected_packet_loss = pyqtSignal(Device)
     error = pyqtSignal(Device)
 
@@ -28,7 +27,9 @@ class Worker(QObject):
 
         self.codec = Codec()
         self.socket: QUdpSocket
+
         self.last_packet_time: int = 0
+        self.expected_delay: int = command.params.get("rate", 0)
 
     @pyqtSlot()
     def work(self) -> None:
@@ -40,11 +41,11 @@ class Worker(QObject):
         logging.debug(f"Interrupting work for device {self.device}")
         self.send_command(Command(CommandId.TEST_STOP))
 
-        self.socket.readyRead.disconnect(self.process_response)
-        self.socket.close()
-        self.socket.deleteLater()
-
-        self.finished.emit(self.device)
+        # self.socket.readyRead.disconnect(self.process_response)
+        # self.socket.close()
+        # self.socket.deleteLater()
+        #
+        # self.finished.emit(self.device)
 
     @pyqtSlot()
     def process_response(self) -> None:
@@ -52,7 +53,12 @@ class Worker(QObject):
             size = self.socket.pendingDatagramSize()
             data, address, port = self.socket.readDatagram(size)
             logging.debug(f"Received from {address}:{port} data {data}")
-            response = self.codec.decode(data)
+
+            try:
+                response = self.codec.decode(data)
+            except Exception as error:
+                logging.error(f"Something went wrong while decoding: {error}")
+                return
 
             match response.id:
                 case ResponseId.ID:
@@ -64,10 +70,9 @@ class Worker(QObject):
                             port,
                         )
                     )
-                    self.finished.emit(self.device)
+                    self.finished.emit(self.device, self.command)
                 case ResponseId.STATUS_MEASURE:
-                    # TODO check packet loss
-                    expected_time = self.last_packet_time + DEFAULT_RATE_MILLISECONDS
+                    expected_time = self.last_packet_time + self.expected_delay
                     if response.payload["t"] != expected_time:
                         logging.warning(
                             f"Packet loss detected for timestamp {expected_time}"
@@ -84,14 +89,15 @@ class Worker(QObject):
                         ),
                     )
                 case ResponseId.STATUS_STATE | ResponseId.TEST_STOP:
-                    self.finished.emit(self.device)
+                    self.finished.emit(self.device, self.command)
                 case ResponseId.ERROR | ResponseId.TEST_ERR:
-                    self.error.emit(self.device)
+                    self.finished.emit(self.device, self.command)
                 case ResponseId.TEST_START:
                     pass
                 case _:
                     logging.warning(f"Unkown response id: {response.id}")
                     self.error.emit(self.device)
+                    self.finished.emit(self.device, self.command)
 
     def create_socket(self) -> None:
         """
@@ -109,6 +115,11 @@ class Worker(QObject):
         )
 
     def send_command(self, command: Command) -> None:
-        encoded = self.codec.encode(command)
+        try:
+            encoded = self.codec.encode(command)
+        except Exception as error:
+            logging.error(f"Something went wrong while encoding: {error}")
+            return
+
         logging.debug(f"Sending command to {self.device}")
         self.socket.writeDatagram(encoded, self.device.address, self.device.port)

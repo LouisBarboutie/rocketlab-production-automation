@@ -42,10 +42,15 @@ class Server(QObject):
         worker = Worker(device, command)
 
         thread.started.connect(worker.work)
+
         worker.discovered_device.connect(self.discovered_device)
         worker.received_measurement.connect(self.received_measurement)
+        # worker.finished.connect(self.finished_measurement)
+        worker.detected_packet_loss.connect(self.detected_packet_loss)
+        worker.error.connect(self.error)
 
         # Cleanup chain to delete threads when worker is done (no reuse)
+        worker.finished.connect(self.remove_task)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
@@ -66,10 +71,10 @@ class Server(QObject):
         to_stop = [task for task in self.tasks if task.device == device]
 
         for task in to_stop:
-            if task.device == device:
-                QMetaObject.invokeMethod(
-                    self.workers[task], "interrupt", Qt.ConnectionType.QueuedConnection
-                )
+            self.tasks.discard(task)
+            QMetaObject.invokeMethod(
+                self.workers[task], "interrupt", Qt.ConnectionType.QueuedConnection
+            )
 
     @pyqtSlot(Task)
     def cleanup(self, task: Task) -> None:
@@ -78,8 +83,18 @@ class Server(QObject):
         self.threads.pop(task, None)
         self.workers.pop(task, None)
 
+    def remove_task(self, device: Device, command: Command):
+        task = Task(device, command.id)
+        logging.debug(f"Discarding {task}")
+        self.tasks.discard(task)
+
     def shutdown(self) -> None:
         logging.debug(f"Shutting down workers")
         tasks = self.tasks.copy()
         for task in tasks:
             self.interrupt(task.device)
+
+        for task, thread in self.threads.items():
+            logging.debug(f"Stopping thread for {task}")
+            thread.quit()
+            thread.wait()

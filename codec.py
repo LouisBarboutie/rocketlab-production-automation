@@ -35,7 +35,7 @@ COMMAND_FORMATS = {
 
 
 RESPONSE_FORMATS = {
-    ResponseId.ID: r"ID;MODEL=(\w+);SERIAL=(\w+);",
+    ResponseId.ID: r"ID;MODEL=(\w+);SERIAL=([^;]+);",
     ResponseId.TEST_START: r"TEST;RESULT=STARTED;",
     ResponseId.TEST_STOP: r"TEST;RESULT=STOPPED;",
     ResponseId.TEST_ERR: r"TEST;RESULT=(\w+);MSG=([^;]+);",
@@ -64,11 +64,6 @@ class EncodeError(Exception):
 
 
 class DecodeError(Exception):
-    def __init__(self, message: str):
-        super().__init__(message)
-
-
-class DeviceError(Exception):
     def __init__(self, message: str):
         super().__init__(message)
 
@@ -126,7 +121,6 @@ class Codec(QObject):
                 pass
             case ResponseId.TEST_ERR | ResponseId.ERROR:
                 response.payload["error"] = m.group(1)
-                raise DeviceError("Device returned an error code")
             case ResponseId.STATUS_MEASURE:
                 try:
                     response.payload["t"] = int(m.group(1))

@@ -53,17 +53,21 @@ window = MainWindow()
 
 window.test_manager.relayed_command.connect(server.command)
 window.test_manager.tab_closed.connect(server.command)
+window.test_manager.interrupt.connect(server.interrupt)
 window.discovery_box.requested_discovery.connect(server.command)
 
 server.discovered_device.connect(window.selection_box.add_device)
 server.received_measurement.connect(window.test_manager.relay_measurement)
 server.finished_measurement.connect(window.test_manager.end_test)
+server.detected_packet_loss.connect(window.test_manager.add_lost_packet)
+
 
 window.show()
 
 exit_code = app.exec()
+logging.info(f"Application finished execution with exit code {exit_code}")
+
 server.shutdown()
 
-logging.info(f"Application finished execution with exit code {exit_code}")
 
 sys.exit(exit_code)

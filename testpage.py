@@ -11,13 +11,11 @@ from control import ControlBox
 from device import Device
 from measurement import Measurement
 
-DEFAULT_RATE_MILLISECONDS = 10
-
 
 class TestPage(QWidget):
 
-    started_test = pyqtSignal(Device, Command)
-    stopped_test = pyqtSignal(Device, Command)
+    started_test = pyqtSignal(Device, int, int)
+    stopped_test = pyqtSignal(Device)
 
     def __init__(self, device: Device) -> None:
         super().__init__()
@@ -93,26 +91,25 @@ class TestPage(QWidget):
         # self.voltages.clear()
         # self.currents.clear()
 
-    @pyqtSlot(int)
-    def start_test(self, duration: int) -> None:
-        logging.debug(f"Requested test start for {self.device}")
-        command = Command(CommandId.TEST_START)
-        command.params["duration"] = duration
-        command.params["rate"] = DEFAULT_RATE_MILLISECONDS
-
+    @pyqtSlot(int, int)
+    def start_test(self, duration: int, rate: int) -> None:
         self.clear_plots()
-        self.plot_points = self.window_size_seconds // DEFAULT_RATE_MILLISECONDS * 1000
+        self.plot_points = int(self.window_size_seconds / rate * 1000)
         self.time = deque([], maxlen=self.plot_points)
         self.voltages = deque([], maxlen=self.plot_points)
         self.currents = deque([], maxlen=self.plot_points)
 
-        self.started_test.emit(self.device, command)
+        logging.debug(f"Requested test start for {self.device}")
+        self.started_test.emit(self.device, duration, rate)
 
     @pyqtSlot()
     def stop_test(self) -> None:
         logging.debug(f"Requested test stop for {self.device}")
-        self.stopped_test.emit(self.device, Command(CommandId.TEST_STOP))
+        self.stopped_test.emit(self.device)
 
     def end_test(self) -> None:
         logging.debug("Test ended")
         # TODO maybe a pop up window to notify the user
+
+    def add_lost_packet(self):
+        self.control_box.add_lost_packet()

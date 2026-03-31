@@ -1,6 +1,6 @@
 import logging
 
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import (
     QGroupBox,
@@ -17,10 +17,11 @@ MAX_TEST_DURATION_SECONDS = 3600
 
 class ControlBox(QGroupBox):
 
-    started_test = pyqtSignal(int)
+    started_test = pyqtSignal(int, int)
     stopped_test = pyqtSignal()
 
     default_duration = 10
+    default_rate = 10
 
     def __init__(self):
         super().__init__("Test control")
@@ -29,16 +30,29 @@ class ControlBox(QGroupBox):
         self.entry_duration.setValidator(QIntValidator())
         self.entry_duration.setText(str(ControlBox.default_duration))
 
+        self.entry_rate = QLineEdit()
+        self.entry_rate.setValidator(QIntValidator())
+        self.entry_rate.setText(str(ControlBox.default_rate))
+
+        self.lost_packets_count = 0
+        self.lost_packets = QLineEdit()
+        self.lost_packets.setReadOnly(True)
+        self.lost_packets.setText(str(0))
+
         self.button_start = QPushButton("Start")
         self.button_stop = QPushButton("Stop")
         self.button_start.clicked.connect(self.start_test)
         self.button_stop.clicked.connect(self.stop_test)
 
         layout = QHBoxLayout()
-        layout.addWidget(QLabel("Test duration:"), 1)
+        layout.addWidget(QLabel("Duration (s):"), 1, Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.entry_duration, 1)
-        layout.addWidget(self.button_start, 1)
-        layout.addWidget(self.button_stop, 1)
+        layout.addWidget(QLabel("Rate (ms):"), 1, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.entry_rate, 1)
+        layout.addWidget(QLabel("Packets lost:"), 1, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.lost_packets, 1)
+        layout.addWidget(self.button_start, 2)
+        layout.addWidget(self.button_stop, 2)
 
         self.setLayout(layout)
 
@@ -63,12 +77,27 @@ class ControlBox(QGroupBox):
             dialog.exec()
             return
 
+        if not (text := self.entry_rate.text()):
+            logging.debug("Missing test rate input")
+            dialog = QMessageBox(self)
+            dialog.setText(f"Please enter a test rate.")
+            dialog.exec()
+            return
+
+        rate = int(text)
+        if not 0 < rate:
+            logging.debug(f"Rate {rate} is not positive")
+            dialog = QMessageBox(self)
+            dialog.setText(f"Please enter a positive test rate")
+            dialog.exec()
+            return
+
         logging.info("Starting test!")
 
         self.button_start.setEnabled(False)
         self.button_stop.setEnabled(True)
 
-        self.started_test.emit(duration)
+        self.started_test.emit(duration, rate)
 
     @pyqtSlot()
     def stop_test(self) -> None:
@@ -81,3 +110,7 @@ class ControlBox(QGroupBox):
         logging.debug("Setting button states")
         self.button_start.setEnabled(True)
         self.button_stop.setEnabled(False)
+
+    def add_lost_packet(self) -> None:
+        self.lost_packets_count += 1
+        self.lost_packets.setText(str(self.lost_packets_count))
