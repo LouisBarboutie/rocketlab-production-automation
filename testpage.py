@@ -1,5 +1,6 @@
+from collections import deque
 import logging
-from typing import List
+from typing import Deque, List
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
@@ -9,6 +10,8 @@ from codec import Command, CommandId
 from control import ControlBox
 from device import Device
 from measurement import Measurement
+
+DEFAULT_RATE_MILLISECONDS = 10
 
 
 class TestPage(QWidget):
@@ -21,9 +24,17 @@ class TestPage(QWidget):
         self.device = device
         self.window_size_seconds = 10
 
-        self.time: List[float] = []
-        self.voltages: List[float] = []
-        self.currents: List[float] = []
+        # If the entire history should be conserved
+        # self.time: List[float] = []
+        # self.voltages: List[float] = []
+        # self.currents: List[float] = []
+
+        # For performance reasons only keep the right amount of points to fit the window
+        # Since deque length cannot be modified, they are created on test start
+        self.plot_points = 100
+        self.time: Deque[float]
+        self.voltages: Deque[float]
+        self.currents: Deque[float]
 
         plot_item_voltage = PlotItem(
             title=f"Voltage for model no. {self.device.model}, serial no. {self.device.serial}",
@@ -77,16 +88,24 @@ class TestPage(QWidget):
         self.plot_voltage.update()
         self.plot_current.update()
 
-        self.time.clear()
-        self.voltages.clear()
-        self.currents.clear()
+        # Not sure how to clear deques if they are recreated anyways
+        # self.time.clear()
+        # self.voltages.clear()
+        # self.currents.clear()
 
     @pyqtSlot(int)
     def start_test(self, duration: int) -> None:
         logging.debug(f"Requested test start for {self.device}")
         command = Command(CommandId.TEST_START)
         command.params["duration"] = duration
+        command.params["rate"] = DEFAULT_RATE_MILLISECONDS
+
         self.clear_plots()
+        self.plot_points = self.window_size_seconds // DEFAULT_RATE_MILLISECONDS * 1000
+        self.time = deque([], maxlen=self.plot_points)
+        self.voltages = deque([], maxlen=self.plot_points)
+        self.currents = deque([], maxlen=self.plot_points)
+
         self.started_test.emit(self.device, command)
 
     @pyqtSlot()

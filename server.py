@@ -15,10 +15,10 @@ from codec import (
     EncodeError,
     DecodeError,
     ResponseId,
-    DEFAULT_RATE_MILLISECONDS,
 )
 from device import Device
 from measurement import Measurement
+from testpage import DEFAULT_RATE_MILLISECONDS
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115

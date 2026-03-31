@@ -8,8 +8,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 # TODO Clean these enums up, maybe wrap them into dicts in the init. The only remaining enum should be CommandId
 
-DEFAULT_RATE_MILLISECONDS = 10
-
 
 class CommandId(IntEnum):
     """Command identifiers to be emitted by PyQt signals."""
@@ -99,7 +97,7 @@ class Codec(QObject):
                 for_sending = template.value
             case CommandFormat.TEST_START:
                 for_sending = template.value.format(
-                    duration=command.params["duration"], rate=DEFAULT_RATE_MILLISECONDS
+                    duration=command.params["duration"], rate=command.params["rate"]
                 )
             case _:
                 raise EncodeError("Unknown command ID")
