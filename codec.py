@@ -1,12 +1,10 @@
 from dataclasses import dataclass, field
-from enum import StrEnum, IntEnum
-from typing import Dict, Any, Optional
+from enum import IntEnum
+from typing import Dict, Any
 import logging
 import re
 
 from PyQt5.QtCore import QObject, pyqtSignal
-
-# TODO Clean these enums up, maybe wrap them into dicts in the init. The only remaining enum should be CommandId
 
 
 class CommandId(IntEnum):
@@ -29,24 +27,22 @@ class ResponseId(IntEnum):
     ERROR = 6
 
 
-class CommandFormat(StrEnum):
-    """Command format templates to be completed by the encoder."""
+COMMAND_FORMATS = {
+    CommandId.ID: "ID;",
+    CommandId.TEST_START: "TEST;CMD=START;DURATION={duration};RATE={rate};",
+    CommandId.TEST_STOP: "TEST;CMD=STOP;",
+}
 
-    ID = "ID;"
-    TEST_START = "TEST;CMD=START;DURATION={duration};RATE={rate};"
-    TEST_STOP = "TEST;CMD=STOP;"
 
-
-class ResponseFormat(StrEnum):
-    """Response format templates to be matched by the decoder."""
-
-    ID = r"ID;MODEL=(\w+);SERIAL=(\w+);"
-    TEST_START = r"TEST;RESULT=STARTED;"
-    TEST_STOP = r"TEST;RESULT=STOPPED;"
-    TEST_ERR = r"TEST;RESULT=(\w+);MSG=([^;]+);"
-    STATUS_MEASURE = r"STATUS;TIME=(\d+);MV=([+-]?[\d.]+);MA=([+-]?[\d.]+);"
-    STATUS_STATE = r"STATUS;STATE=IDLE;"
-    ERROR = r"ERR;REASON=([^;]+);"
+RESPONSE_FORMATS = {
+    ResponseId.ID: r"ID;MODEL=(\w+);SERIAL=(\w+);",
+    ResponseId.TEST_START: r"TEST;RESULT=STARTED;",
+    ResponseId.TEST_STOP: r"TEST;RESULT=STOPPED;",
+    ResponseId.TEST_ERR: r"TEST;RESULT=(\w+);MSG=([^;]+);",
+    ResponseId.STATUS_MEASURE: r"STATUS;TIME=(\d+);MV=([+-]?[\d.]+);MA=([+-]?[\d.]+);",
+    ResponseId.STATUS_STATE: r"STATUS;STATE=IDLE;",
+    ResponseId.ERROR: r"ERR;REASON=([^;]+);",
+}
 
 
 @dataclass
@@ -88,15 +84,18 @@ class Codec(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.encoding = "iso-8859-1"
-        self.patterns = {entry: re.compile(entry.value) for entry in ResponseFormat}
+        self.command_formats = COMMAND_FORMATS
+        self.response_formats = {
+            id: re.compile(format) for id, format in RESPONSE_FORMATS.items()
+        }
 
     def encode(self, command: Command) -> bytes:
-        template = CommandFormat[command.id.name]
-        match template:
-            case CommandFormat.ID | CommandFormat.TEST_STOP:
-                for_sending = template.value
-            case CommandFormat.TEST_START:
-                for_sending = template.value.format(
+        template = self.command_formats[command.id]
+        match command.id:
+            case CommandId.ID | CommandId.TEST_STOP:
+                for_sending = template
+            case CommandId.TEST_START:
+                for_sending = template.format(
                     duration=command.params["duration"], rate=command.params["rate"]
                 )
             case _:
@@ -110,15 +109,14 @@ class Codec(QObject):
 
         logging.debug(f"Decoding data {repr(decoded)}")
 
-        for key, pattern in self.patterns.items():
+        for response_id, pattern in self.response_formats.items():
             m = pattern.fullmatch(decoded)
             if m is not None:
-                logging.debug(f"Matched response format for response {key.name}")
+                logging.debug(f"Matched response format for response {response_id}")
                 break
         else:
             raise DecodeError("Unknown response format")
 
-        response_id = ResponseId[key.name]
         response = Response(decoded, response_id)
         match response_id:
             case ResponseId.ID:
