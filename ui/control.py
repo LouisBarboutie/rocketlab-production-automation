@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
 
 MIN_TEST_DURATION_SECONDS = 0
 MAX_TEST_DURATION_SECONDS = 3600
+MIN_TEST_RATE_MILLISECONDS = 5  # Any lower than 3 might make the plots struggle
 
 
 class ControlBox(QGroupBox):
@@ -85,17 +86,18 @@ class ControlBox(QGroupBox):
             return
 
         rate = int(text)
-        if not 0 < rate:
-            logging.debug(f"Rate {rate} is not positive")
+        if not MIN_TEST_RATE_MILLISECONDS < rate:
+            logging.debug(f"Rate {rate} is not more than {MIN_TEST_RATE_MILLISECONDS}")
             dialog = QMessageBox(self)
-            dialog.setText(f"Please enter a positive test rate")
+            dialog.setText(
+                f"Please enter a test rate above {MIN_TEST_RATE_MILLISECONDS} ms"
+            )
             dialog.exec()
             return
 
         logging.info("Starting test!")
 
-        self.button_start.setEnabled(False)
-        self.button_stop.setEnabled(True)
+        self.set_input_lock(True)
 
         self.started_test.emit(duration, rate)
 
@@ -108,9 +110,14 @@ class ControlBox(QGroupBox):
     @pyqtSlot()
     def end_test(self) -> None:
         logging.debug("Setting button states")
-        self.button_start.setEnabled(True)
-        self.button_stop.setEnabled(False)
+        self.set_input_lock(False)
 
     def add_lost_packet(self) -> None:
         self.lost_packets_count += 1
         self.lost_packets.setText(str(self.lost_packets_count))
+
+    def set_input_lock(self, lock: bool) -> None:
+        self.button_start.setEnabled(not lock)
+        self.button_stop.setEnabled(lock)
+        self.entry_duration.setReadOnly(lock)
+        self.entry_rate.setReadOnly(lock)

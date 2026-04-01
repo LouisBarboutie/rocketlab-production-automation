@@ -58,7 +58,7 @@ class Server(QObject):
         interrupt.interrupt.connect(worker.interrupt)
         worker.discovered_device.connect(self.discovered_device)
         worker.received_measurement.connect(self.received_measurement)
-        # worker.finished.connect(self.finished_measurement)
+        worker.finished.connect(self.finished_measurement)
         worker.detected_packet_loss.connect(self.detected_packet_loss)
         worker.error.connect(self.error)
 

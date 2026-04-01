@@ -96,6 +96,7 @@ class TestPage(QWidget):
 
         self.control_box.lost_packets_count = 0
         self.control_box.lost_packets.setText("0")
+        self.control_box.set_input_lock(True)
 
         self.plot_points = int(self.window_size_seconds / rate * 1000)
         self.time = deque([], maxlen=self.plot_points)
@@ -113,6 +114,7 @@ class TestPage(QWidget):
     def end_test(self) -> None:
         logging.debug("Test ended")
         # TODO maybe a pop up window to notify the user
+        self.control_box.set_input_lock(False)
 
     def add_lost_packet(self):
         self.control_box.add_lost_packet()

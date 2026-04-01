@@ -2,7 +2,7 @@ import logging
 from typing import Dict
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
-from PyQt5.QtWidgets import QTabWidget
+from PyQt5.QtWidgets import QMessageBox, QTabWidget
 
 from network.codec import Command, CommandId
 from network.device import Device
@@ -26,6 +26,9 @@ class TestManager(QTabWidget):
     def add_test(self, device: Device) -> None:
         if device in self.tests:
             logging.debug(f"Test already added for device {device}")
+            dialog = QMessageBox(self)
+            dialog.setText(f"Test already added for {device.serial}")
+            dialog.exec()
             return
 
         page = TestPage(device)
