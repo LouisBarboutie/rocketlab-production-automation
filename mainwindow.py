@@ -1,5 +1,7 @@
 from PyQt5.QtWidgets import (
+    QAction,
     QMainWindow,
+    QMenuBar,
     QWidget,
     QGridLayout,
 )
@@ -15,6 +17,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("RocketLab Production Automation Demo")
 
+        menu_bar = self.menuBar()
+        window = menu_bar.addMenu("Window")
+        reset = QAction("Reset to defaults", self)
+        window.addAction(reset)
+
         # --- Widget creation ---
 
         self.discovery_box = DiscoveryBox()
@@ -24,6 +31,7 @@ class MainWindow(QMainWindow):
         # --- Widget connections ---
 
         self.selection_box.confirmed_device.connect(self.test_manager.add_test)
+        reset.triggered.connect(self.discovery_box.reset)
 
         # --- Widget placement ---
 

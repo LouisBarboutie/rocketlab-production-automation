@@ -115,3 +115,9 @@ class DiscoveryBox(QGroupBox):
             return False
 
         return True
+
+    @pyqtSlot()
+    def reset(self):
+        logging.debug("Resetting to default values")
+        self.entry_ip.setText(self.default_ip)
+        self.entry_port.setText(self.default_port)

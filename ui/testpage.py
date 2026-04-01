@@ -93,6 +93,10 @@ class TestPage(QWidget):
     @pyqtSlot(int, int)
     def start_test(self, duration: int, rate: int) -> None:
         self.clear_plots()
+
+        self.control_box.lost_packets_count = 0
+        self.control_box.lost_packets.setText("0")
+
         self.plot_points = int(self.window_size_seconds / rate * 1000)
         self.time = deque([], maxlen=self.plot_points)
         self.voltages = deque([], maxlen=self.plot_points)
