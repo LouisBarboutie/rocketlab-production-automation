@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 
-from device import Device
+from network.device import Device
 
 
 class SelectionBox(QGroupBox):

@@ -3,9 +3,9 @@ import logging
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtNetwork import QHostAddress, QUdpSocket
 
-from codec import Command, Codec, ResponseId, CommandId
-from device import Device
-from measurement import Measurement
+from network.codec import Command, Codec, ResponseId, CommandId
+from network.device import Device
+from ui.measurement import Measurement
 
 MULTICAST_ADDR = "224.3.11.15"
 MULTICAST_PORT = 31115

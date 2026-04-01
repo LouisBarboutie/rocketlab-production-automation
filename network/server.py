@@ -5,10 +5,10 @@ from typing import Dict, Set
 
 from PyQt5.QtCore import QMetaObject, QObject, QThread, pyqtSignal, pyqtSlot, Qt
 
-from codec import Command, CommandId
-from device import Device
-from measurement import Measurement
-from worker import Worker
+from network.codec import Command, CommandId
+from network.device import Device
+from ui.measurement import Measurement
+from network.worker import Worker
 
 
 @dataclass(frozen=True)

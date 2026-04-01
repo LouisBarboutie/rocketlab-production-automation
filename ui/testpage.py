@@ -1,15 +1,14 @@
 from collections import deque
 import logging
-from typing import Deque, List
+from typing import Deque
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from pyqtgraph import PlotItem, PlotWidget
 
-from codec import Command, CommandId
-from control import ControlBox
-from device import Device
-from measurement import Measurement
+from ui.control import ControlBox
+from network.device import Device
+from ui.measurement import Measurement
 
 
 class TestPage(QWidget):

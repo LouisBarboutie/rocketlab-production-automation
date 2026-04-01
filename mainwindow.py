@@ -4,9 +4,9 @@ from PyQt5.QtWidgets import (
     QGridLayout,
 )
 
-from discovery import DiscoveryBox
-from testmanager import TestManager
-from selection import SelectionBox
+from ui.discovery import DiscoveryBox
+from ui.testmanager import TestManager
+from ui.selection import SelectionBox
 
 
 class MainWindow(QMainWindow):

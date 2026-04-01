@@ -7,7 +7,7 @@ import sys
 from PyQt5.QtWidgets import QApplication
 
 from mainwindow import MainWindow
-from server import Server
+from network.server import Server
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", action="store_true", default=False)

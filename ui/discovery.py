@@ -13,8 +13,8 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 
-from codec import Command, CommandId
-from device import Device
+from network.codec import Command, CommandId
+from network.device import Device
 
 # Port number is a uint16
 MIN_PORT_NUMBER = 0

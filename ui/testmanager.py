@@ -4,10 +4,10 @@ from typing import Dict
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QTabWidget
 
-from codec import Command, CommandId
-from device import Device
-from measurement import Measurement
-from testpage import TestPage
+from network.codec import Command, CommandId
+from network.device import Device
+from ui.measurement import Measurement
+from ui.testpage import TestPage
 
 
 class TestManager(QTabWidget):

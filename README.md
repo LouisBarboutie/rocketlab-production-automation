@@ -6,7 +6,7 @@ This repo is my submission for the position of production automation junior engi
 
 See requirements.txt for the required python packages. The application relies mainly on PyQt5, with the external dependency of pyqtgraph, which enables high performance plotting. Pyqtgraph was chosen over MatPlotLib because it offers better integration with Qt, is more lightweight and built for high performance, whereas the latter is better suited for static plots.
 
-The code was developped and tested on ArchLinux' rolling release.
+The code was developped and tested on ArchLinux' rolling release, with the Hyperland tiling manager. The appearance may vary on a different environment.
 
 # Prerequisites
 
