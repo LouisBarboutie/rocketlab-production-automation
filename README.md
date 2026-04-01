@@ -34,9 +34,13 @@ To run a test, follow this procedure:
 4. Each device can have one active test at a time.
 5. Press the start button to launch a test with the desired parameters, and stop to interrupt it at any time
 6. While a test is running, other tests can be started in other tabs, beware of the known issues though.
+7. A test may be restarted after being either interrupted or having finished
+8. A test may be removed by closing the tab, but can be added again from the selection area. This will interrupt the test if it is running.
 
 # Known issues
 
 * Switching between test tabs too quickly while the tests are running may cause the ui to freeze
 * Running a device discovery while the tests are active will interrupt all tests
+* Crash if a discovered device becomes unavailable while a test is running
+* Previously discovered devices remain available in the selection after successive discoveries, even if they are not found in the latest discovery
 
