@@ -17,6 +17,16 @@ class Task:
     command: CommandId
 
 
+class Interrupt(QObject):
+    """Helper class for creating interrupt signals at runtime.
+
+    Qt signals can only be declared as class attributes,
+    not directly constructed.
+    """
+
+    interrupt = pyqtSignal()
+
+
 class Server(QObject):
     discovered_device = pyqtSignal(Device)
     received_measurement = pyqtSignal(Device, Measurement)
@@ -29,6 +39,7 @@ class Server(QObject):
         self.tasks: Set[Task] = set()
         self.threads: Dict[Task, QThread] = {}
         self.workers: Dict[Task, Worker] = {}
+        self.interrupts: Dict[Task, Interrupt] = {}
 
     @pyqtSlot(Device, Command)
     def command(self, device: Device, command: Command) -> None:
@@ -40,9 +51,11 @@ class Server(QObject):
 
         thread = QThread()
         worker = Worker(device, command)
+        interrupt = Interrupt()
 
         thread.started.connect(worker.work)
 
+        interrupt.interrupt.connect(worker.interrupt)
         worker.discovered_device.connect(self.discovered_device)
         worker.received_measurement.connect(self.received_measurement)
         # worker.finished.connect(self.finished_measurement)
@@ -61,6 +74,7 @@ class Server(QObject):
         self.tasks.add(task)
         self.threads[task] = thread
         self.workers[task] = worker
+        self.interrupts[task] = interrupt
 
         worker.moveToThread(thread)
         thread.start()
@@ -72,9 +86,7 @@ class Server(QObject):
 
         for task in to_stop:
             self.tasks.discard(task)
-            QMetaObject.invokeMethod(
-                self.workers[task], "interrupt", Qt.ConnectionType.QueuedConnection
-            )
+            self.interrupts[task].interrupt.emit()
 
     @pyqtSlot(Task)
     def cleanup(self, task: Task) -> None:
@@ -82,6 +94,7 @@ class Server(QObject):
         self.tasks.discard(task)
         self.threads.pop(task, None)
         self.workers.pop(task, None)
+        self.interrupts.pop(task, None)
 
     def remove_task(self, device: Device, command: Command):
         task = Task(device, command.id)
@@ -91,10 +104,10 @@ class Server(QObject):
     def shutdown(self) -> None:
         logging.debug(f"Shutting down workers")
         tasks = self.tasks.copy()
+
         for task in tasks:
             self.interrupt(task.device)
 
         for task, thread in self.threads.items():
             logging.debug(f"Stopping thread for {task}")
-            thread.quit()
             thread.wait()

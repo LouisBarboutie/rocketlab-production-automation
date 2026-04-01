@@ -1,6 +1,6 @@
 import logging
 
-from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, QThread, QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtNetwork import QHostAddress, QUdpSocket
 
 from network.codec import Command, Codec, ResponseId, CommandId
@@ -43,7 +43,14 @@ class Worker(QObject):
     @pyqtSlot()
     def interrupt(self) -> None:
         logging.debug(f"Interrupting work for device {self.device}")
+
+        if self.timer and self.timer.isActive():
+            logging.debug("Stopping timer")
+            self.timer.stop()
+
         self.send_command(Command(CommandId.TEST_STOP))
+        QThread.currentThread().quit()
+        self.finished.emit(self.device, self.command)
 
     @pyqtSlot()
     def process_response(self) -> None:
