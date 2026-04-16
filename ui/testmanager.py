@@ -8,6 +8,7 @@ from network.codec import Command, CommandId
 from network.device import Device
 from ui.measurement import Measurement
 from ui.testpage import TestPage
+from ui.testparameters import TestParameters
 
 
 class TestManager(QTabWidget):
@@ -77,11 +78,11 @@ class TestManager(QTabWidget):
         logging.debug(f"Relaying measurement for device {device}: {measurement}")
         self.tests[device].update_plots(measurement)
 
-    @pyqtSlot(Device, int, int)
-    def start_test(self, device: Device, duration: int, rate: int):
+    @pyqtSlot(Device, TestParameters)
+    def start_test(self, device: Device, parameters: TestParameters):
         command = Command(CommandId.TEST_START)
-        command.params["duration"] = duration
-        command.params["rate"] = rate
+        command.params["duration"] = parameters.duration
+        command.params["rate"] = parameters.rate
         self.relayed_command.emit(device, command)
 
     @pyqtSlot(Device)

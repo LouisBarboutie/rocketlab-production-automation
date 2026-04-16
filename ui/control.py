@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 
+from ui.testparameters import TestParameters
+
 MIN_TEST_DURATION_SECONDS = 0
 MAX_TEST_DURATION_SECONDS = 3600
 MIN_TEST_RATE_MILLISECONDS = 5  # Any lower than 3 might make the plots struggle
@@ -18,7 +20,7 @@ MIN_TEST_RATE_MILLISECONDS = 5  # Any lower than 3 might make the plots struggle
 
 class ControlBox(QGroupBox):
 
-    started_test = pyqtSignal(int, int)
+    started_test = pyqtSignal(TestParameters)
     stopped_test = pyqtSignal()
 
     default_duration = 10
@@ -99,7 +101,7 @@ class ControlBox(QGroupBox):
 
         self.set_input_lock(True)
 
-        self.started_test.emit(duration, rate)
+        self.started_test.emit(TestParameters(duration, rate))
 
     @pyqtSlot()
     def stop_test(self) -> None:

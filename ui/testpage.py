@@ -9,11 +9,12 @@ from pyqtgraph import GraphicsLayoutWidget
 from ui.control import ControlBox
 from network.device import Device
 from ui.measurement import Measurement
+from ui.testparameters import TestParameters
 
 
 class TestPage(QWidget):
 
-    started_test = pyqtSignal(Device, int, int)
+    started_test = pyqtSignal(Device, TestParameters)
     stopped_test = pyqtSignal(Device)
 
     def __init__(self, device: Device) -> None:
@@ -94,21 +95,21 @@ class TestPage(QWidget):
         # self.voltages.clear()
         # self.currents.clear()
 
-    @pyqtSlot(int, int)
-    def start_test(self, duration: int, rate: int) -> None:
+    @pyqtSlot(TestParameters)
+    def start_test(self, parameters: TestParameters) -> None:
         self.clear_plots()
 
         self.control_box.lost_packets_count = 0
         self.control_box.lost_packets.setText("0")
         self.control_box.set_input_lock(True)
 
-        self.plot_points = int(self.window_size_seconds / rate * 1000)
+        self.plot_points = int(self.window_size_seconds / parameters.rate * 1000)
         self.time = deque([], maxlen=self.plot_points)
         self.voltages = deque([], maxlen=self.plot_points)
         self.currents = deque([], maxlen=self.plot_points)
 
         logging.debug(f"Requested test start for {self.device}")
-        self.started_test.emit(self.device, duration, rate)
+        self.started_test.emit(self.device, parameters)
 
     @pyqtSlot()
     def stop_test(self) -> None:
