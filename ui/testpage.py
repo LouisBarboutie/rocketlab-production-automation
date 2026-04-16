@@ -4,7 +4,7 @@ from typing import Deque
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
-from pyqtgraph import PlotItem, PlotWidget
+from pyqtgraph import GraphicsLayoutWidget
 
 from ui.control import ControlBox
 from network.device import Device
@@ -33,20 +33,22 @@ class TestPage(QWidget):
         self.voltages: Deque[float]
         self.currents: Deque[float]
 
-        plot_item_voltage = PlotItem(
+        self.plot_layout = GraphicsLayoutWidget()
+        self.plot_voltage = self.plot_layout.addPlot(
+            row=0,
+            col=0,
             title=f"Voltage for model no. {self.device.model}, serial no. {self.device.serial}",
             labels={"bottom": "Elapsed time [s]", "left": "Voltage [mV]"},
         )
-        plot_item_current = PlotItem(
+        self.plot_current = self.plot_layout.addPlot(
+            row=1,
+            col=0,
             title=f"Current for model no. {self.device.model}, serial no. {self.device.serial}",
             labels={"bottom": "Elapsed time [s]", "left": "Current [mA]"},
         )
 
-        self.plot_voltage = PlotWidget(plotItem=plot_item_voltage)
-        self.plot_current = PlotWidget(plotItem=plot_item_current)
-
-        self.curve_voltage = plot_item_voltage.plot()
-        self.curve_current = plot_item_current.plot()
+        self.curve_voltage = self.plot_voltage.plot()
+        self.curve_current = self.plot_current.plot()
 
         self.control_box = ControlBox()
         self.control_box.started_test.connect(self.start_test)
@@ -54,14 +56,16 @@ class TestPage(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.control_box)
-        layout.addWidget(self.plot_voltage)
-        layout.addWidget(self.plot_current)
+        layout.addWidget(self.plot_layout)
         self.setLayout(layout)
 
     def update_plots(self, measurement: Measurement) -> None:
         self.time.append(measurement.time / 1000)
         self.voltages.append(measurement.milli_volts)
         self.currents.append(measurement.milli_amps)
+
+        if self.plot_layout.isVisible() is False:
+            return
 
         self.curve_voltage.setData(self.time, self.voltages)
         self.curve_current.setData(self.time, self.currents)
